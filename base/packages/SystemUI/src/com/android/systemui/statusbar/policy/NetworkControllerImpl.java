@@ -65,6 +65,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
+//add by zhangzixiao 20190401 SW2MSM8953-332 hide sim card icon in status bar when close sim start
+import android.os.ServiceManager;
+import org.codeaurora.internal.IExtTelephony;
+//add by zhangzixiao 20190401 SW2MSM8953-332 end
+
 import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
 
 /** Platform implementation of the network controller. **/
@@ -534,6 +539,22 @@ public class NetworkControllerImpl extends BroadcastReceiver
         if (subscriptions == null) {
             subscriptions = Collections.emptyList();
         }
+        //add by zhangzixiao 20190401 SW2MSM8953-332 hide sim card icon in status bar when close sim start
+        for(int i=0;i<subscriptions.size();i++) {
+            int slotId = subscriptions.get(i).getSimSlotIndex();
+            int mUiccProvisionStatus = -1;
+            try {
+                IExtTelephony extTelephony =
+                        IExtTelephony.Stub.asInterface(ServiceManager.getService("extphone"));
+                mUiccProvisionStatus = extTelephony.getCurrentUiccCardProvisioningStatus(slotId);
+            } catch (Exception ex) {
+                Log.e(TAG, "get IExtTelephony Error : " + ex.toString());
+            }
+            if(mUiccProvisionStatus != 1/* PROVISIONED */) {
+                subscriptions.remove(i--);
+            }
+        }
+        //add by zhangzixiao 20190401 SW2MSM8953-332 end
         // If there have been no relevant changes to any of the subscriptions, we can leave as is.
         if (hasCorrectMobileControllers(subscriptions)) {
             // Even if the controllers are correct, make sure we have the right no sims state.

@@ -108,6 +108,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.File;
 
 /**
  * The power manager service is responsible for coordinating power management
@@ -462,6 +465,9 @@ public final class PowerManagerService extends SystemService
     // The screen brightness setting, from 0 to 255.
     // Use -1 if no value has been set.
     private int mScreenBrightnessSetting;
+
+    private int mViceScreenBrightnessSetting;
+    private final String dsi1_bl_path = "/sys/devices/platform/soc/soc:qcom,dsi1_bridge/dsi1_bl_value";
 
     // The screen brightness mode.
     // One of the Settings.System.SCREEN_BRIGHTNESS_MODE_* constants.
@@ -947,6 +953,12 @@ public final class PowerManagerService extends SystemService
         mScreenBrightnessModeSetting = Settings.System.getIntForUser(resolver,
                 Settings.System.SCREEN_BRIGHTNESS_MODE,
                 Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL, UserHandle.USER_CURRENT);
+
+        if(isViceBrightnessAvailable()){
+            mViceScreenBrightnessSetting = Settings.System.getInt(resolver,
+                "Quectel.def.vice.screen",245) + 10;
+            bootCommand(String.valueOf(mViceScreenBrightnessSetting),dsi1_bl_path);
+        }
 
         mDirty |= DIRTY_SETTINGS;
     }
@@ -4737,4 +4749,25 @@ public final class PowerManagerService extends SystemService
             powerHintInternal(hintId, data);
         }
     }
+
+    private void bootCommand(String Strvalue,String path){
+        FileWriter command = null;
+        try {
+            command = new FileWriter(path);
+               if (!Strvalue.isEmpty()) {
+                    command.write(Strvalue);
+                    command.write("\n");
+                }
+                  command.close();
+            }catch (IOException e){
+                Slog.e(TAG, "bootCommand exception:  " + e);
+            }
+    }
+    private boolean isViceBrightnessAvailable(){
+        File mFile = new File(dsi1_bl_path);
+        boolean isExist = mFile.exists();
+        Slog.e(TAG, "isViceBrightnessAvailable  " + isExist);
+        return isExist;
+    }
+
 }

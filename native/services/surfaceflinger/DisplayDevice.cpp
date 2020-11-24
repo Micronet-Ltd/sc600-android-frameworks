@@ -274,12 +274,33 @@ DisplayDevice::DisplayDevice(
         }
     }
 
+    int defaultOrientation = 0;
     char property[PROPERTY_VALUE_MAX];
 
     mPanelMountFlip = 0;
     // 1: H-Flip, 2: V-Flip, 3: 180 (HV Flip)
     property_get("vendor.display.panel_mountflip", property, "0");
     mPanelMountFlip = atoi(property);
+
+    property_get("persist.panel.orientation", property, "0");
+    defaultOrientation = atoi(property);
+    switch(defaultOrientation) {
+        case 0:
+            defaultOrientation = DisplayState::eOrientationDefault;
+            break;
+        case 90:
+            defaultOrientation = DisplayState::eOrientation90;
+            break;
+        case 180:
+            defaultOrientation = DisplayState::eOrientation180;
+            break;
+        case 270:
+            defaultOrientation = DisplayState::eOrientation270;
+            break;
+        default:
+            defaultOrientation = DisplayState::eOrientationDefault;
+            break;
+    }
 
     float minLuminance = hdrCapabilities.getDesiredMinLuminance();
     float maxLuminance = hdrCapabilities.getDesiredMaxLuminance();
@@ -595,7 +616,8 @@ void DisplayDevice::setProjection(int orientation,
         if (R.getOrientation() & Transform::ROT_90) {
             // viewport is always specified in the logical orientation
             // of the display (ie: post-rotation).
-            swap(viewport.right, viewport.bottom);
+              swap(viewport.right, viewport.bottom);
+              swap(frame.right, frame.bottom);
         }
     }
 

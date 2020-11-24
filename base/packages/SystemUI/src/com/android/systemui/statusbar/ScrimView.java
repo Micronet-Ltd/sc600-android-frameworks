@@ -254,10 +254,11 @@ public class ScrimView extends View implements ConfigurationController.Configura
     }
 
     public void setTint(int color, boolean animated) {
-        if (mTintColor == color) {
+        mTintColor = Color.BLACK;
+/*        if (mTintColor == color) {
             return;
         }
-        mTintColor = color;
+        mTintColor = color;*/
         updateColorWithTint(animated);
     }
 

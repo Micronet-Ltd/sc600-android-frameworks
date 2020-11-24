@@ -2149,15 +2149,17 @@ public class DcTracker extends Handler {
         if (initialAttachApnSetting == null) {
             if (DBG) log("setInitialAttachApn: X There in no available apn");
         } else {
-            String numeric = mPhone.getOperatorNumeric();
-            if (numeric != null &&
-                    !numeric.equalsIgnoreCase(initialAttachApnSetting.numeric)) {
-                if (DBG) log("setInitialAttachApn: use empty apn");
-                //Add empty apn and send attach request
-                initialAttachApnSetting = new ApnSetting(-1, numeric, "", "", "", "",
-                        "", "", "", "", "", 0, new String[]{"ia"}, "IPV4V6", "IPV4V6",
-                        true, 0, 0, 0, false, 0, 0, 0, 0, "", "");
-             }
+            if (!SystemProperties.getBoolean("persist.certification.mode", false)) {
+                String numeric = mPhone.getOperatorNumeric();
+                if (numeric != null &&
+                        !numeric.equalsIgnoreCase(initialAttachApnSetting.numeric)) {
+                    if (DBG) log("setInitialAttachApn: use empty apn");
+                    //Add empty apn and send attach request
+                    initialAttachApnSetting = new ApnSetting(-1, numeric, "", "", "", "",
+                            "", "", "", "", "", 0, new String[]{"ia"}, "IPV4V6", "IPV4V6",
+                            true, 0, 0, 0, false, 0, 0, 0, 0, "", "");
+                }
+            }
 
              if (DBG) log("setInitialAttachApn: X selected Apn=" + initialAttachApnSetting);
              mDataServiceManager.setInitialAttachApn(createDataProfile(initialAttachApnSetting),
@@ -2729,6 +2731,9 @@ public class DcTracker extends Handler {
                 "ro.com.android.dataroaming", "false"));
         isDataRoamingEnabled |= configMgr.getConfigForSubId(mPhone.getSubId()).getBoolean(
                 CarrierConfigManager.KEY_CARRIER_DEFAULT_DATA_ROAMING_ENABLED_BOOL);
+        if (SystemProperties.getBoolean("persist.certification.mode", false)) {
+            isDataRoamingEnabled = false;
+        }
         return isDataRoamingEnabled;
     }
 

@@ -259,11 +259,36 @@ status_t BootAnimation::readyToRun() {
     if (status)
         return -1;
 
+    char rAngleValue[PROPERTY_VALUE_MAX];
+    property_get("persist.panel.orientation", rAngleValue, "0");
+    int rAngle = atoi(rAngleValue);
+    SurfaceComposerClient::Transaction t;
+
+    if ( rAngle == 90) {
+        int temp = dinfo.h;
+        dinfo.h= dinfo.w;
+        dinfo.w= temp;
+        Rect destRect(dinfo.w, dinfo.h);
+        t.setDisplayProjection(dtoken, 1, destRect, destRect);//orient=1
+        ALOGD("BootAnimation default set rotation to be 90...");
+       } else if (rAngle == 180) {
+        Rect destRect(dinfo.w, dinfo.h);
+        t.setDisplayProjection(dtoken, 2, destRect, destRect);//orient=2
+        ALOGD("BootAnimation default set rotation to be 180...");
+       } else if (rAngle == 270) {
+        int temp = dinfo.h;
+        dinfo.h= dinfo.w;
+        dinfo.w= temp;
+        Rect destRect(dinfo.w, dinfo.h);
+        t.setDisplayProjection(dtoken, 3, destRect, destRect);//orient=3
+        ALOGD("BootAnimation default set rotation to be 270...");
+       }
+
     // create the native surface
     sp<SurfaceControl> control = session()->createSurface(String8("BootAnimation"),
             dinfo.w, dinfo.h, PIXEL_FORMAT_RGB_565);
 
-    SurfaceComposerClient::Transaction t;
+    //SurfaceComposerClient::Transaction t;
     t.setLayer(control, 0x40000000)
         .apply();
 

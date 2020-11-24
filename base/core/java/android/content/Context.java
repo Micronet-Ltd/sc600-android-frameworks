@@ -3136,6 +3136,8 @@ public abstract class Context {
      * <dt> {@link #NETWORK_STATS_SERVICE} ("netstats")
      * <dd> A {@link android.app.usage.NetworkStatsManager NetworkStatsManager} for querying network
      * usage statistics.
+     * <dt> {@link #OMADM_SERVICE} ("omadm_service")
+     * <dd> A {@link android.omadm.OmadmManager OmadmManager} for access to omadm PAL
      * <dt> {@link #HARDWARE_PROPERTIES_SERVICE} ("hardware_properties")
      * <dd> A {@link android.os.HardwarePropertiesManager} for accessing hardware properties.
      * </dl>
@@ -3209,6 +3211,8 @@ public abstract class Context {
      * @see android.app.usage.NetworkStatsManager
      * @see android.os.HardwarePropertiesManager
      * @see #HARDWARE_PROPERTIES_SERVICE
+     * @see #OMADM_SERVICE
+     * @see android.omadm.OmadmManager
      */
     public abstract @Nullable Object getSystemService(@ServiceName @NonNull String name);
 
@@ -3229,6 +3233,7 @@ public abstract class Context {
      * {@link android.app.UiModeManager}, {@link android.app.DownloadManager},
      * {@link android.os.BatteryManager}, {@link android.app.job.JobScheduler},
      * {@link android.app.usage.NetworkStatsManager}.
+     * {@link android.omadm.OmadmManager}.
      * </p><p>
      * Note: System services obtained via this API may be closely associated with
      * the Context in which they are obtained from.  In general, do not share the
@@ -3901,6 +3906,15 @@ public abstract class Context {
      */
     public static final String SERIAL_SERVICE = "serial";
 
+    /**
+     * Use with {@link #getSystemService} to retrieve a {@link
+     * android.omadm.OmadmManager} for access to omadm PAL.
+     *
+     * @see #getSystemService
+     * @see android.omadm.OmadmManager
+     */
+    public static final String OMADM_SERVICE = "omadm_service";
+	
     /**
      * Use with {@link #getSystemService(String)} to retrieve a
      * {@link android.hardware.hdmi.HdmiControlManager} for controlling and managing

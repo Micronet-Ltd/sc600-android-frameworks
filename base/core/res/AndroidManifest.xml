@@ -2612,6 +2612,12 @@
     <permission android:name="android.permission.DIAGNOSTIC"
         android:protectionLevel="signature" />
 
+    <!-- @SystemApi Allows omadm applications to access omadm service.
+    <p>Not for use by third-party applications.
+    @hide -->
+    <permission android:name="android.permission.OMADMACCESS"
+        android:protectionLevel="signature|system" />
+
     <!-- @SystemApi Allows an application to open, close, or disable the status bar
          and its icons.
          <p>Not for use by third-party applications. -->

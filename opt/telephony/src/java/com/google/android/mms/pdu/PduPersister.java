@@ -733,6 +733,12 @@ public class PduPersister {
 
         if (part.getName() != null) {
             String name = new String(part.getName());
+            if (ContentType.TEXT_PLAIN.equals(contentType)) {
+                if (!name.endsWith(".txt")) {
+                    Log.d(TAG, "Part text : change name from " + name + " to " + name + ".txt");
+                    name = name + ".txt";
+                }
+            }
             values.put(Part.NAME, name);
         }
 

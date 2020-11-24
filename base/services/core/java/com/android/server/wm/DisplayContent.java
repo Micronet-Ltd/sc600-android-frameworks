@@ -130,6 +130,7 @@ import android.graphics.Region.Op;
 import android.hardware.display.DisplayManagerInternal;
 import android.os.Debug;
 import android.os.Handler;
+import android.os.SystemProperties;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.SystemClock;
@@ -259,7 +260,7 @@ class DisplayContent extends WindowContainer<DisplayContent.DisplayChildWindowCo
      *
      * @see #updateRotationUnchecked()
      */
-    private int mRotation = 0;
+    private int mRotation = SystemProperties.getInt("persist.panel.orientation", 0) / 90;
 
     /**
      * Last applied orientation of the display.

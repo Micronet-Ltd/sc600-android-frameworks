@@ -6921,7 +6921,12 @@ public class TelephonyManager {
      * @hide
      */
     public void setBasebandVersionForPhone(int phoneId, String version) {
-        setTelephonyProperty(phoneId, TelephonyProperties.PROPERTY_BASEBAND_VERSION, version);
+        //setTelephonyProperty(phoneId, TelephonyProperties.PROPERTY_BASEBAND_VERSION, version);
+        if (SubscriptionManager.isValidPhoneId(phoneId)) {
+        String prop = TelephonyProperties.PROPERTY_BASEBAND_VERSION +
+                  ((phoneId == 0) ? "" : Integer.toString(phoneId));
+        SystemProperties.set(prop, version);
+      }
     }
 
     /**
@@ -7979,5 +7984,20 @@ public class TelephonyManager {
             // This could happen if binder process crashes.
         }
         return UNKNOWN_CARRIER_ID_LIST_VERSION;
+    }
+
+    /**
+     * @hide
+     */
+    public boolean isVerizon() {
+        String mccmnc = getSimOperator();
+        if ("311480".equals(mccmnc)
+                || "310590".equals(mccmnc)
+                || "310890".equals(mccmnc)
+                || "311270".equals(mccmnc)
+                || "312770".equals(mccmnc)) {
+            return true;
+        }
+        return false;
     }
 }

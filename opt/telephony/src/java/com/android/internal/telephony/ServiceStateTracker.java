@@ -32,6 +32,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
+import android.database.ContentObserver;
 import android.hardware.radio.V1_0.CellInfoType;
 import android.os.AsyncResult;
 import android.os.BaseBundle;
@@ -109,6 +110,11 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.PatternSyntaxException;
+import android.view.WindowManager;
+import java.util.Timer;
+import java.util.TimerTask;
+import android.content.DialogInterface;
+import android.app.AlertDialog;
 
 /**
  * {@hide}
@@ -224,6 +230,8 @@ public class ServiceStateTracker extends Handler {
     protected static final int EVENT_IMS_SERVICE_STATE_CHANGED         = 53;
     protected static final int EVENT_RADIO_POWER_OFF_DONE              = 54;
     protected static final int EVENT_PHYSICAL_CHANNEL_CONFIG           = 55;
+    protected static final int EVENT_SET_NET_MODE_GLOBAL               = 60;
+    protected static final int EVENT_SET_ALERT_NET_GLOBAL              = 61;
 
     private class CellInfoResult {
         List<CellInfo> list;
@@ -255,6 +263,11 @@ public class ServiceStateTracker extends Handler {
 
     private boolean mImsRegistered = false;
 
+    private static boolean mNetIsInService = false;
+    private int mSearchNetCount = 0;
+    private static boolean mIsNetAlertGoingToShow = false;
+    private static AlertDialog mAlertChangeNetModeDialog;
+
     private SubscriptionManager mSubscriptionManager;
     private SubscriptionController mSubscriptionController;
     private final SstSubscriptionsChangedListener mOnSubscriptionsChangedListener =
@@ -271,6 +284,10 @@ public class ServiceStateTracker extends Handler {
     private final LocalLog mPhoneTypeLog = new LocalLog(10);
     private final LocalLog mRatLog = new LocalLog(20);
     private final LocalLog mRadioPowerLog = new LocalLog(20);
+    private AlertDialog mNoSIMDialog;
+    private Timer mTimer;
+    private MyTask mTimerTask;
+    private boolean isShowingDialog = false;
 
     private class SstSubscriptionsChangedListener extends OnSubscriptionsChangedListener {
         public final AtomicInteger mPreviousSubId =
@@ -476,6 +493,8 @@ public class ServiceStateTracker extends Handler {
                                    // while calculating signal strength level.
     private final Object mLteRsrpBoostLock = new Object();
     private static final int INVALID_LTE_EARFCN = -1;
+    private final String mRadioCertificationUri = "radio_certification_on";
+    private int mRadioCertificationMode = 1;
 
     public ServiceStateTracker(GsmCdmaPhone phone, CommandsInterface ci) {
         mNitzState = TelephonyComponentFactory.getInstance().makeNitzStateMachine(phone);
@@ -532,6 +551,10 @@ public class ServiceStateTracker extends Handler {
         mPhone.getCarrierActionAgent().registerForCarrierAction(CARRIER_ACTION_SET_RADIO_ENABLED,
                 this, EVENT_RADIO_POWER_FROM_CARRIER, null, false);
 
+        mCr.registerContentObserver(
+                Settings.Global.getUriFor(Settings.Global.PREFERRED_NETWORK_MODE), true,
+                mPreferedNetworkModeObserver);
+
         // Monitor locale change
         Context context = mPhone.getContext();
         IntentFilter filter = new IntentFilter();
@@ -559,6 +582,8 @@ public class ServiceStateTracker extends Handler {
                 CarrierServiceStateTracker.CARRIER_EVENT_DATA_REGISTRATION, null);
         registerForDataConnectionDetached(mCSST,
                 CarrierServiceStateTracker.CARRIER_EVENT_DATA_DEREGISTRATION, null);
+        mRadioCertificationMode = Settings.Global.getInt(context.getContentResolver(),
+                mRadioCertificationUri,1);
     }
 
     @VisibleForTesting
@@ -1462,6 +1487,45 @@ public class ServiceStateTracker extends Handler {
                     if (RatRatcheter.updateBandwidths(getBandwidthsFromConfigs(list), mSS)) {
                         mPhone.notifyServiceStateChanged(mSS);
                     }
+                }
+                break;
+
+            case EVENT_SET_NET_MODE_GLOBAL:
+                ar = (AsyncResult) msg.obj;
+                if (ar.exception == null) {
+                    log("handleSetPreferredNetworkTypeResponse: Sucess");
+                    final int phoneSubId = mPhone.getSubId();
+                    final int phoneId = mPhone.getPhoneId();
+                    android.provider.Settings.Global.putInt(mPhone.getContext().getContentResolver(),
+                            android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
+                            Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA);
+                    TelephonyManager.putIntAtIndex(mPhone.getContext().getContentResolver(),
+                            android.provider.Settings.Global.PREFERRED_NETWORK_MODE, phoneId,
+                            Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA);
+                            }
+                break;
+
+            case EVENT_SET_ALERT_NET_GLOBAL:
+                String mccmnc = mPhone.getOperatorNumeric();
+                log("EVENT_SET_ALERT_NET_GLOBAL : mccmnc=" + mccmnc);
+                if(SystemProperties.getBoolean("persist.certification.mode", false)
+                        && TelephonyManager.getDefault().isVerizon()){
+                    if(!mIsNetAlertGoingToShow) mIsNetAlertGoingToShow =true;
+                    if(!mNetIsInService && isSimCardyReady()){
+                        if(mSearchNetCount ++ < 5){
+                           sendEmptyMessageDelayed(EVENT_SET_ALERT_NET_GLOBAL, 5000);
+                        }else{
+                            log("EVENT_SET_ALERT_NET_GLOBAL  show alert ChangeNetMode");
+                             alertChangeNetMode();
+                             mSearchNetCount = 0;
+                        }
+                    }else {
+                        mIsNetAlertGoingToShow = false;
+                        mSearchNetCount= 0;
+                    }
+                }else{
+                    mIsNetAlertGoingToShow = false;
+                    log("EVENT_SET_ALERT_NET_GLOBAL  don't need show alert ChangeNetMode");
                 }
                 break;
 
@@ -2498,6 +2562,22 @@ public class ServiceStateTracker extends Handler {
             mCurShowPlmn = showPlmn;
             mCurSpn = "";
             mCurPlmn = plmn;
+        }
+
+        log("updateSpnDisplay : combinedRegState=" + combinedRegState + ", mNetIsInService=" + mNetIsInService);
+        if (combinedRegState == ServiceState.STATE_OUT_OF_SERVICE
+                || combinedRegState == ServiceState.STATE_EMERGENCY_ONLY) {
+            mNetIsInService = false;
+            int netMode = Settings.Global.getInt(mPhone.getContext().getContentResolver(),
+                            android.provider.Settings.Global.PREFERRED_NETWORK_MODE + mPhone.getSubId(), 10);
+            log("updateSpnDisplay : netMode=" + netMode + ", mIsNetAlertGoingToShow=" + mIsNetAlertGoingToShow);
+            if(netMode!=Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA && !mIsNetAlertGoingToShow){
+                log("EVENT_SET_ALERT_NET_GLOBAL send message to show set net mode global netMode: "+netMode);
+                sendEmptyMessageDelayed(EVENT_SET_ALERT_NET_GLOBAL, 5000);
+                mIsNetAlertGoingToShow = true;
+            }
+        } else if (combinedRegState == ServiceState.STATE_IN_SERVICE) {
+            if(!mNetIsInService) mNetIsInService = true;
         }
     }
 
@@ -3710,6 +3790,23 @@ public class ServiceStateTracker extends Handler {
                 // do nothing and cancel the notification later
                 break;
             case CS_REJECT_CAUSE_ENABLED:
+                String message = null;
+                switch (mRejectCode) {
+                case 2:
+                    message = "SIM not provisioned MM#2";
+                    break;
+                case 3:
+                    message = "SIM not allowed MM#3";
+                    break;
+                case 6:
+                    message = "Phone not allowed MM#6";
+                    break;
+                }
+                if (message != null && mRadioCertificationMode ==1) {
+                    log("show alert dialog for radio state error : mRejectCode = " + mRejectCode);
+                    alertError(message);
+                    return;
+                }
                 notificationId = CS_REJECT_CAUSE_NOTIFICATION;
                 int resId = selectResourceForRejectCode(mRejectCode, multipleSubscriptions);
                 if (0 == resId) {
@@ -3765,6 +3862,66 @@ public class ServiceStateTracker extends Handler {
             // update restricted state notification for this subId
             if (show) {
                 notificationManager.notify(Integer.toString(mSubId), notificationId, mNotification);
+            }
+        }
+    }
+
+    private void alertError(String message) {
+        if (isShowingDialog | (message == null)) {
+            log("alertError not show isShowingDialog=" + isShowingDialog + " message = " + message);
+            return;
+        }
+        if (mNoSIMDialog != null) {
+            mNoSIMDialog.dismiss();
+            mNoSIMDialog = null;
+        }
+        mTimer = new Timer();
+        mTimerTask = new MyTask();
+        AlertDialog.Builder builder = new AlertDialog.Builder(mPhone.getContext())
+                .setTitle("Reject the registration attempt").setMessage(message);
+        mNoSIMDialog = builder.setCancelable(true).create();
+        mNoSIMDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG);
+        mNoSIMDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                mNoSIMDialog = null;
+                if (mTimer != null) {
+                    mTimer.cancel();
+                }
+                if (mTimerTask != null) {
+                    mTimerTask.cancel();
+                }
+                isShowingDialog = false;
+                mTimer = null;
+                mTimerTask = null;
+            }
+        });
+        log("alertError  show dialog");
+        mNoSIMDialog.show();
+        isShowingDialog = true;
+        if ((mTimer != null) && (mTimerTask != null)) {
+            mTimer.schedule(mTimerTask, 120000);
+        } else {
+            mTimerTask = new MyTask();
+            mTimer = new Timer();
+            mTimer.schedule(mTimerTask, 120000);
+        }
+    }
+
+    private class MyTask extends TimerTask {
+        @Override
+        public void run() {
+            if (mNoSIMDialog != null) {
+                mNoSIMDialog.dismiss();
+                mNoSIMDialog = null;
+                if (mTimer != null) {
+                    mTimer.cancel();
+                }
+                if (mTimerTask != null) {
+                    mTimerTask.cancel();
+                }
+                mTimer = null;
+                mTimerTask = null;
             }
         }
     }
@@ -4792,5 +4949,71 @@ public class ServiceStateTracker extends Handler {
 
     public LocaleTracker getLocaleTracker() {
         return mLocaleTracker;
+    }
+
+    private ContentObserver mPreferedNetworkModeObserver = new ContentObserver(new Handler()) {
+        @Override
+        public void onChange(boolean selfChange) {
+            int netMode = Settings.Global.getInt(mPhone.getContext().getContentResolver(),
+                            android.provider.Settings.Global.PREFERRED_NETWORK_MODE + mPhone.getSubId(),0);
+            log("Preferred nw mode change : new mode=" + netMode + ", regState=" + getCombinedRegState() + ", mIsNetAlertGoingToShow=" + mIsNetAlertGoingToShow);
+            if(netMode!=Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA && getCombinedRegState() == ServiceState.STATE_OUT_OF_SERVICE){
+                if(!mIsNetAlertGoingToShow) {
+                    mSearchNetCount= 0;
+                    sendEmptyMessageDelayed(EVENT_SET_ALERT_NET_GLOBAL, 5000);
+                    mIsNetAlertGoingToShow = true;
+                }
+            }
+        }
+    };
+
+    public boolean isSimCardyReady() {
+        int state = ((TelephonyManager) mPhone.getContext().getSystemService(Context.TELEPHONY_SERVICE)).getSimState();
+        log("isSimCardyReady "+state);
+        return state != TelephonyManager.SIM_STATE_ABSENT ;
+    }
+
+    private  void alertChangeNetMode(){
+        int netMode = Settings.Global.getInt(mPhone.getContext().getContentResolver(),
+                        android.provider.Settings.Global.PREFERRED_NETWORK_MODE + mPhone.getSubId(),10);
+        if(netMode==Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA){
+            mIsNetAlertGoingToShow = false;
+            log("alertChangeNetMode current network mode is global so return" );
+            return;
+        }
+        if(mAlertChangeNetModeDialog ==null){
+            AlertDialog.Builder builder = new AlertDialog
+                .Builder(mPhone.getContext())
+                .setTitle("Network mode")
+                .setMessage("The network is not avaiable.You can try global mode to see if alternative networks are available.Do you want to set network to global mode?")
+                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        loge("alertChangeNetMode Negative" );
+                        mIsNetAlertGoingToShow = false;
+                        mAlertChangeNetModeDialog = null;
+                    }
+                })
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        loge("alertChangeNetMode Positive" );
+                        mIsNetAlertGoingToShow = false;
+                        mPhone.setPreferredNetworkType(Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA,
+                                obtainMessage(EVENT_SET_NET_MODE_GLOBAL,mPollingContext));
+                        mAlertChangeNetModeDialog = null;
+                    }
+                });
+            mAlertChangeNetModeDialog = builder.setCancelable(false).create();
+            mAlertChangeNetModeDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG);
+            mAlertChangeNetModeDialog.show();
+            log("alertChangeNetMode show alertDialog " );
+        }else {
+            if(mAlertChangeNetModeDialog.isShowing()){
+                return;
+            }else{
+                mAlertChangeNetModeDialog.show();
+            }
+        }
     }
 }

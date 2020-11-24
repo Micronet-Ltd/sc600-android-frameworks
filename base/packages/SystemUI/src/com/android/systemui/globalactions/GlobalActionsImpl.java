@@ -21,6 +21,7 @@ import android.app.Dialog;
 import android.app.KeyguardManager;
 import android.app.WallpaperManager;
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,6 +41,7 @@ import com.android.systemui.plugins.GlobalActions;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
 import com.android.systemui.statusbar.policy.KeyguardMonitor;
+import android.util.Log;
 
 public class GlobalActionsImpl implements GlobalActions, CommandQueue.Callbacks {
 
@@ -120,7 +122,7 @@ public class GlobalActionsImpl implements GlobalActions, CommandQueue.Callbacks 
         mContext.getDisplay().getRealSize(displaySize);
         GradientColors colors = Dependency.get(SysuiColorExtractor.class).getColors(
                 onKeyguard ? WallpaperManager.FLAG_LOCK : WallpaperManager.FLAG_SYSTEM);
-        background.setColors(colors, false);
+        background.setColors(Color.BLACK,Color.BLACK, false);
         background.setScreenSize(displaySize.x, displaySize.y);
 
         d.show();

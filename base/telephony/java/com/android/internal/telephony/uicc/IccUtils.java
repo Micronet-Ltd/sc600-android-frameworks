@@ -56,14 +56,10 @@ public class IccUtils {
             int v;
 
             v = data[i] & 0xf;
-            if (v > 9)  break;
-            ret.append((char)('0' + v));
+            ret.append("0123456789ABCDEF".charAt(v));
 
             v = (data[i] >> 4) & 0xf;
-            // Some PLMNs have 'f' as high nibble, ignore it
-            if (v == 0xf) continue;
-            if (v > 9)  break;
-            ret.append((char)('0' + v));
+            ret.append("0123456789ABCDEF".charAt(v));
         }
 
         return ret.toString();

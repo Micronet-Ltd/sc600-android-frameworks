@@ -25,4 +25,17 @@
     -->
     <integer name="config_mobile_mtu">1420</integer>
 
+    <!-- Values for GPS configuration -->
+    <string-array translatable="false" name="config_gpsParameters">
+        <item>SUPL_HOST=lcs-iot.kddi.ne.jp</item>
+        <item>SUPL_PORT=7275</item>
+        <item>SUPL_VER=0x20000</item>
+        <item>SUPL_MODE=1</item>
+        <item>SUPL_ES=0</item>
+        <item>LPP_PROFILE=3</item>
+        <item>USE_EMERGENCY_PDN_FOR_EMERGENCY_SUPL=1</item>
+        <item>A_GLONASS_POS_PROTOCOL_SELECT=0xF</item>
+        <item>GPS_LOCK=0</item>
+    </string-array>
+
 </resources>

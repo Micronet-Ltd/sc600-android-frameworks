@@ -123,6 +123,7 @@ package android {
     field public static final java.lang.String NOTIFICATION_DURING_SETUP = "android.permission.NOTIFICATION_DURING_SETUP";
     field public static final java.lang.String NOTIFY_TV_INPUTS = "android.permission.NOTIFY_TV_INPUTS";
     field public static final java.lang.String OBSERVE_APP_USAGE = "android.permission.OBSERVE_APP_USAGE";
+    field public static final java.lang.String OMADMACCESS = "android.permission.OMADMACCESS";
     field public static final java.lang.String OVERRIDE_WIFI_CONFIG = "android.permission.OVERRIDE_WIFI_CONFIG";
     field public static final java.lang.String PACKAGE_USAGE_STATS = "android.permission.PACKAGE_USAGE_STATS";
     field public static final java.lang.String PACKAGE_VERIFICATION_AGENT = "android.permission.PACKAGE_VERIFICATION_AGENT";
@@ -5482,12 +5483,12 @@ package android.telephony.ims {
     method public void callSessionMergeStarted(android.telephony.ims.stub.ImsCallSessionImplBase, android.telephony.ims.ImsCallProfile);
     method public void callSessionMultipartyStateChanged(boolean);
     method public void callSessionProgressing(android.telephony.ims.ImsStreamMediaProfile);
+    method public void callSessionPropertyChanged(int);
     method public void callSessionRemoveParticipantsRequestDelivered();
     method public void callSessionRemoveParticipantsRequestFailed(android.telephony.ims.ImsReasonInfo);
     method public void callSessionResumeFailed(android.telephony.ims.ImsReasonInfo);
     method public void callSessionResumeReceived(android.telephony.ims.ImsCallProfile);
     method public void callSessionResumed(android.telephony.ims.ImsCallProfile);
-    method public void callSessionPropertyChanged(int);
     method public void callSessionRttMessageReceived(java.lang.String);
     method public void callSessionRttModifyRequestReceived(android.telephony.ims.ImsCallProfile);
     method public void callSessionRttModifyResponseReceived(int);

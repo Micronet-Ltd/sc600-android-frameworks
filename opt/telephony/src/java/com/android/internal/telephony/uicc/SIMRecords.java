@@ -626,6 +626,21 @@ public class SIMRecords extends IccRecords {
         }
     }
 
+    private static String
+    bcdToString(byte[] data, int offset, int length) {
+        StringBuilder ret = new StringBuilder(length*2);
+        for (int i = offset ; i < offset + length ; i++) {
+            int v;
+
+            v = data[i] & 0xf;
+            ret.append("0123456789ABCDEF".charAt(v));
+
+            v = (data[i] >> 4) & 0xf;
+            ret.append("0123456789ABCDEF".charAt(v));
+        }
+        return ret.toString();
+    }
+
     // ***** Overridden from Handler
     @Override
     public void handleMessage(Message msg) {
@@ -896,7 +911,7 @@ public class SIMRecords extends IccRecords {
                         break;
                     }
 
-                    mIccId = IccUtils.bcdToString(data, 0, data.length);
+                    mIccId = bcdToString(data, 0, data.length);
                     mFullIccId = IccUtils.bchToString(data, 0, data.length);
 
                     log("iccid: " + SubscriptionInfo.givePrintableIccid(mFullIccId));

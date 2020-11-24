@@ -102,6 +102,8 @@ import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.rtt.IWifiRttManager;
 import android.net.wifi.rtt.WifiRttManager;
 import android.nfc.NfcManager;
+import android.omadm.IOmadmManager;
+import android.omadm.OmadmManager;
 import android.os.BatteryManager;
 import android.os.BatteryStats;
 import android.os.Build;
@@ -997,6 +999,18 @@ final class SystemServiceRegistry {
                                         Context.DEVICE_IDLE_CONTROLLER));
                         return new DeviceIdleManager(ctx.getOuterContext(), service);
                     }});
+         Log.w(TAG, "registerService omadm_service");
+        registerService(Context.OMADM_SERVICE, OmadmManager.class,
+                new CachedServiceFetcher<OmadmManager>() {
+            @Override
+            public OmadmManager createService(ContextImpl ctx) {
+                IBinder b = ServiceManager.getService(Context.OMADM_SERVICE);
+                IOmadmManager service = IOmadmManager.Stub.asInterface(b);
+                if (service == null) {
+                    Log.wtf(TAG, "Failed to get omadm manager service.");
+                }
+                return new OmadmManager(service);
+            }});
     }
 
     /**

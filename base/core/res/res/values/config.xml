@@ -777,7 +777,7 @@
 
     <!-- If true, the screen can be rotated via the accelerometer in all 4
          rotations as the default behavior. -->
-    <bool name="config_allowAllRotations">false</bool>
+    <bool name="config_allowAllRotations">true</bool>
 
     <!-- If true, the direction rotation is applied to get to an application's requested
          orientation is reversed.  Normally, the model is that landscape is
@@ -2834,9 +2834,9 @@
         <item>SUPL_VER=0x20000</item>
         <item>SUPL_MODE=1</item>
         <item>SUPL_ES=1</item>
-        <item>LPP_PROFILE=0</item>
+        <item>LPP_PROFILE=3</item>
         <item>USE_EMERGENCY_PDN_FOR_EMERGENCY_SUPL=1</item>
-        <item>A_GLONASS_POS_PROTOCOL_SELECT=0</item>
+        <item>A_GLONASS_POS_PROTOCOL_SELECT=0xF</item>
         <item>GPS_LOCK=0</item>
     </string-array>
 

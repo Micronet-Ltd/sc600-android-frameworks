@@ -19,6 +19,7 @@ package com.android.internal.telephony;
 import android.Manifest;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.UserSwitchObserver;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -33,6 +34,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.os.SystemProperties;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.provider.Settings.Global;
@@ -48,6 +50,7 @@ import android.telephony.TelephonyManager;
 import android.telephony.UiccAccessRule;
 import android.telephony.euicc.EuiccManager;
 import android.text.TextUtils;
+import android.view.WindowManager;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.euicc.EuiccController;
@@ -120,6 +123,8 @@ public class SubscriptionInfoUpdater extends Handler {
     // The current foreground user ID.
     private int mCurrentlyActiveUserId;
     private CarrierServiceBindHelper mCarrierServiceBindHelper;
+    private boolean hasSetNewSimNwType = false;
+    private AlertDialog mNwGlobalDialog;
 
     public SubscriptionInfoUpdater(
             Looper looper, Context context, Phone[] phone, CommandsInterface[] ci) {
@@ -386,6 +391,24 @@ public class SubscriptionInfoUpdater extends Handler {
 
         if (isAllIccIdQueryDone()) {
             updateSubscriptionInfoByIccId();
+            boolean mOnCertificationMode = SystemProperties.getBoolean("persist.certification.mode", false);
+            boolean isVerizon = TelephonyManager.getDefault().isVerizon();
+            String mccmnc = TelephonyManager.getDefault().getSimOperator();
+            logd("mOnCertificationMode="+mOnCertificationMode+", isVerizon="+isVerizon+", mccmnc="+mccmnc+", hasSetNewSimNwType="+hasSetNewSimNwType);
+            if (!hasSetNewSimNwType && mOnCertificationMode && isVerizon) {
+                hasSetNewSimNwType = true;
+                for (int i=0; i<PROJECT_SIM_NUM; i++) {
+                    if (mInsertSimState[i] == SIM_NEW) {
+                        logd("[" + i + "]set nw type to global for new sim");
+                        Settings.Global.putInt(
+                            mPhone[i].getContext().getContentResolver(),
+                            Global.PREFERRED_NETWORK_MODE + mPhone[i].getSubId(),
+                            Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA);
+                        mPhone[i].setPreferredNetworkType(Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA, null);
+                        alertNwToGlobal(mPhone[i].getContext());
+                    }
+                }
+            }
             int[] subIds = mSubscriptionManager.getActiveSubscriptionIdList();
             for (int subId : subIds) {
                 slotId = SubscriptionController.getInstance().getPhoneId(subId);
@@ -481,6 +504,21 @@ public class SubscriptionInfoUpdater extends Handler {
                 }
             }
         }
+    }
+
+    private void alertNwToGlobal(Context context) {
+        if (mNwGlobalDialog != null) {
+            mNwGlobalDialog.dismiss();
+            mNwGlobalDialog = null;
+        }
+        AlertDialog.Builder builder = new AlertDialog
+            .Builder(context).setTitle("Network mode")
+            .setMessage("SIM card detected. Switching to global mode.")
+            .setPositiveButton("OK", null);
+        mNwGlobalDialog = builder.setCancelable(true).create();
+        mNwGlobalDialog.getWindow().setType(
+                WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG);
+        mNwGlobalDialog.show();
     }
 
     private void updateCarrierServices(int slotId, String simState) {

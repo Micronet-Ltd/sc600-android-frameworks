@@ -1231,6 +1231,16 @@ public final class ImsPhoneMmiCode extends Handler implements MmiCode {
             if (isServiceCodeCallBarring(mSc)) {
                 return mContext.getText(com.android.internal.R.string.BaMmi);
             } else if (isServiceCodeCallForwarding(mSc)) {
+                Rlog.d(LOG_TAG, "getScString service code Call Forwarding : mSc = " + mSc);
+                if (mSc.equals(SC_CFU)) {
+                    return mContext.getText(com.android.internal.R.string.CfMmi) + " Unconditional"; /* 21 */
+                } else if (mSc.equals(SC_CFB)) {
+                    return mContext.getText(com.android.internal.R.string.CfMmi) + " Busy"; /* 67 */
+                } else if (mSc.equals(SC_CFNRy)) {
+                    return mContext.getText(com.android.internal.R.string.CfMmi) + " No Reply"; /* 61 */
+                } else if (mSc.equals(SC_CFNR)) {
+                    return mContext.getText(com.android.internal.R.string.CfMmi) + " Not Reachable"; /* 62 */
+                }
                 return mContext.getText(com.android.internal.R.string.CfMmi);
             } else if (mSc.equals(SC_PWD)) {
                 return mContext.getText(com.android.internal.R.string.PwdMmi);
