@@ -35,6 +35,7 @@ import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
+import android.os.SystemProperties;
 
 import com.android.internal.net.VpnConfig;
 
@@ -188,17 +189,39 @@ public class VpnService extends Service {
      * which case this method will return an intent the next time it is
      * executed to obtain the user's consent again.
      *
+     *
      * @see #onRevoke
      */
+    @RequiresPermission(android.Manifest.permission.CONTROL_VPN)
     public static Intent prepare(Context context) {
-        try {
-            if (getService().prepareVpn(context.getPackageName(), null, context.getUserId())) {
-                return null;
+        //Micronet: Updated method to bypass user consent for VPN (LM request)
+        // If the user is running the application on a SmartCam, bypass the permission.
+        // The implementation is similar to the prepareAndAuthorize()
+        if(shouldAvoidPermissions()){
+            IConnectivityManager cm = getService();
+                String packageName = context.getPackageName();
+                try {
+                    // Only prepare if we're not already prepared.
+                    int userId = context.getUserId();
+                    if (!cm.prepareVpn(packageName, null, userId)) {
+                        cm.prepareVpn(null, packageName, userId);
+                    }
+                    cm.setVpnPackageAuthorization(packageName, userId, true);
+            } catch (RemoteException e) {
+                // ignore
             }
-        } catch (RemoteException e) {
-            // ignore
+            return null;
         }
-        return VpnConfig.getIntentForConfirmation();
+        else {
+            try {
+                if (getService().prepareVpn(context.getPackageName(), null, context.getUserId())) {
+                    return null;
+                }
+            } catch (RemoteException e) {
+                // ignore
+            }
+            return VpnConfig.getIntentForConfirmation();
+        }
     }
 
     /**
@@ -808,5 +831,10 @@ public class VpnService extends Service {
                 throw new IllegalStateException(e);
             }
         }
+    }
+    //Micronet: Including a method to identify the difference between SC and ST8
+    private static boolean shouldAvoidPermissions(){
+        String boardType = SystemProperties.get("persist.vendor.board.config", "");
+        return (boardType.equals("smartcam"));
     }
 }

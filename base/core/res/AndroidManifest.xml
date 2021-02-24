@@ -363,7 +363,9 @@
     <protected-broadcast android:name="android.net.wigig.p2p.PEERS_CHANGED" />
     <protected-broadcast android:name="android.net.wigig.p2p.DISCOVERY_STATE_CHANGE" />
     <protected-broadcast android:name="android.net.wigig.p2p.THIS_DEVICE_CHANGED" />
-    <protected-broadcast android:name="android.net.wigig.p2p.PERSISTENT_GROUPS_CHANGED" />
+    <protected-broadcast android:name="android.net.wigig.p2p.PERSISTENT_GROUPS_CHANGED" />    
+    <!-- Micronet Broadcasts -->
+    <protected-broadcast android:name="com.micronet.wifi.p2p.INVITE_RECEIVED"/>
 
     <protected-broadcast android:name="android.net.wifi.WIFI_STATE_CHANGED" />
     <protected-broadcast android:name="com.qualcomm.qti.net.wifi.WIFI_DATA_STALL" />

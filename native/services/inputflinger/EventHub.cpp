@@ -1081,7 +1081,7 @@ static const int32_t GAMEPAD_KEYCODES[] = {
         AKEYCODE_BUTTON_THUMBL, AKEYCODE_BUTTON_THUMBR,
         AKEYCODE_BUTTON_START, AKEYCODE_BUTTON_SELECT, AKEYCODE_BUTTON_MODE,
 };
-
+static std::string vinputsName = "vinputs";
 status_t EventHub::registerDeviceForEpollLocked(Device* device) {
     struct epoll_event eventItem;
     memset(&eventItem, 0, sizeof(eventItem));
@@ -1215,6 +1215,25 @@ status_t EventHub::openDeviceLocked(const char *devicePath) {
                     sizeof_bit_array(BTN_MOUSE))
             || containsNonZeroByte(device->keyBitmask, sizeof_bit_array(BTN_JOYSTICK),
                     sizeof_bit_array(BTN_DIGI));
+
+    bool looksLikeVinputs = test_bit(ABS_HAT0X, device->absBitmask) &&
+                              test_bit(ABS_HAT0Y, device->absBitmask) &&
+                              test_bit(ABS_HAT1X, device->absBitmask) &&
+                              test_bit(ABS_HAT1Y, device->absBitmask) &&
+                              test_bit(ABS_HAT2X, device->absBitmask) &&
+                              test_bit(ABS_HAT2Y, device->absBitmask) &&
+                              test_bit(ABS_HAT3X, device->absBitmask) &&
+                              test_bit(ABS_HAT3Y, device->absBitmask) &&
+                               (std::string(device->identifier.name.string()).compare(vinputsName) == 0);
+
+    if (looksLikeVinputs) {
+        ALOGD("%s: device \"%s\" looksLikeVinputs true\n",__func__,device->identifier.name.string());
+        device->classes |= INPUT_DEVICE_CLASS_VINPUTS;
+    }else{
+        ALOGD("%s: device \"%s\" looksLikeVinputs false\n",__func__,device->identifier.name.string());
+
+    }
+
     if (haveKeyboardKeys || haveGamepadButtons) {
         device->classes |= INPUT_DEVICE_CLASS_KEYBOARD;
     }

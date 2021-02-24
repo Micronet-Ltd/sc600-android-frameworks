@@ -290,6 +290,11 @@ public final class InputDevice implements Parcelable {
     public static final int SOURCE_HDMI = 0x02000000 | SOURCE_CLASS_BUTTON;
 
     /**
+     * Micronet's MCU's virtual inputs
+     */
+
+    public static final int SOURCE_VINPUTS = 0x04000000 | SOURCE_CLASS_NONE;
+    /**
      * A special input source constant that is used when filtering input devices
      * to match devices that provide any type of input source.
      */
