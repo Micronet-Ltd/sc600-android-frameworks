@@ -16,7 +16,10 @@
 
 #define LOG_TAG "InputReader"
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
+
+// Log for Micronet virtual inputs events
+#define LOG_VINPUTS 0
 
 // Log debug messages for each raw event received from the EventHub.
 #define DEBUG_RAW_EVENTS 0
@@ -585,6 +588,11 @@ InputDevice* InputReader::createDeviceLocked(int32_t deviceId, int32_t controlle
     // External stylus-like devices.
     if (classes & INPUT_DEVICE_CLASS_EXTERNAL_STYLUS) {
         device->addMapper(new ExternalStylusInputMapper(device));
+    }
+    // Vinputs input mapper
+    if (classes & INPUT_DEVICE_CLASS_VINPUTS) {
+        if (LOG_VINPUTS) ALOGD("%s: device->addMapper(new VinputsInputMapper(device))\n",__func__);
+        device->addMapper(new VinputsInputMapper(device));
     }
 
     return device;
@@ -7491,5 +7499,111 @@ bool JoystickInputMapper::hasMovedNearerToValueWithinFilteredRange(
     }
     return false;
 }
+// --- VinputsInputMapper ---
+
+VinputsInputMapper::VinputsInputMapper(InputDevice* device):InputMapper(device){
+}
+VinputsInputMapper::VinputsEvent::VinputsEvent(nsecs_t pWhen,int32_t pDeviceId,int32_t pType,int32_t pCode,int32_t pValue):
+            mWhen(pWhen),mDeviceId(pDeviceId),mType(pType),mCode(pCode),mValue(pValue) {}
+
+
+VinputsInputMapper::~VinputsInputMapper() {
+}
+
+uint32_t VinputsInputMapper::getSources() {
+    return AINPUT_SOURCE_VINPUTS;
+}
+
+void VinputsInputMapper::populateDeviceInfo(InputDeviceInfo* info) {
+    InputMapper::populateDeviceInfo(info);
+
+}
+
+
+void VinputsInputMapper::dump(std::string& dump) {
+    dump.append(INDENT2 "Vinputs Input Mapper: nothing to dump yet\n");
+
+}
+
+void VinputsInputMapper::configure(nsecs_t when,
+        const InputReaderConfiguration* config, uint32_t changes) {
+    InputMapper::configure(when, config, changes);
+
+//  if (!changes) { // first time only
+//  }
+}
+
+
+
+
+void VinputsInputMapper::reset(nsecs_t when) {
+
+    InputMapper::reset(when);
+}
+
+void VinputsInputMapper::process(const RawEvent* rawEvent) {
+    switch (rawEvent->type) {
+    case EV_ABS: {
+        if (LOG_VINPUTS){
+            ALOGD("%s: EV_ABS (VinputsInputMapper) rawEvent->when: %llu, rawEvent->deviceId: %d, rawEvent->type: %d, rawEvent->code: %d, rawEvent->value: %d\n"
+              ,__func__,(unsigned long long)(rawEvent->when),rawEvent->deviceId,rawEvent->type,rawEvent->code,rawEvent->value);
+        }
+
+        mEventsQueue.push(new VinputsEvent(rawEvent->when,rawEvent->deviceId,rawEvent->type,rawEvent->code,rawEvent->value));
+
+        break;
+    }
+
+    case EV_SYN:
+        switch (rawEvent->code) {
+        case SYN_REPORT:
+            if (LOG_VINPUTS){
+                ALOGD("%s: EV_SYN SYN_REPORT (VinputsInputMapper) rawEvent->when: %llu, rawEvent->deviceId: %d, rawEvent->type: %d, rawEvent->code: %d, rawEvent->value: %d\n"
+                  ,__func__,(unsigned long long)(rawEvent->when),rawEvent->deviceId,rawEvent->type,rawEvent->code,rawEvent->value);
+            }
+            sync(rawEvent->when, false /*force*/);
+            break;
+        }
+        break;
+    }
+}
+
+void VinputsInputMapper::sync(nsecs_t when, bool force) {
+
+
+
+
+
+    while (mEventsQueue.size()!=0) {
+
+        VinputsEvent* event = mEventsQueue.front();
+
+        NotifyKeyArgs args(event->mWhen ,
+                           getDeviceId() ,
+                           getSources(),
+                           POLICY_FLAG_DISABLE_KEY_REPEAT         /*policyFlags |= POLICY_FLAG_DISABLE_KEY_REPEAT *//*policyFlags*/,
+                           event->mValue != 0 /* down ? AKEY_EVENT_ACTION_DOWN : AKEY_EVENT_ACTION_UP */,
+                           AKEY_EVENT_FLAG_FROM_SYSTEM /*flags*/,
+                           event->mCode /*try AKEYCODE_UNKNOWN keyCode*/,
+                           event->mValue,
+                           AMETA_NONE /*keyMetaState*/,
+                           ( event->mValue != 0 ? 0 : 10 ) /*downTime ns */);
+
+        if (LOG_VINPUTS){
+            ALOGD("%s: (VinputsInputMapper) sending key event up the chain.when=%llu, deviceId=%d, sources=%d, policyFlags=%d, down=%d,"
+              "flags=%d, keyCode=%d, scanCode=%d, metaState=%d, downTime=%d\n"
+              ,__func__,(unsigned long long)(event->mWhen) ,getDeviceId() ,getSources(),0,event->mValue != 0,AKEY_EVENT_FLAG_FROM_SYSTEM,event->mCode,event->mValue,AMETA_NONE,( event->mValue != 0 ? 0 : 10 ));
+        }
+
+
+        getListener()->notifyKey(&args);
+
+        mEventsQueue.pop();
+    }
+
+
+
+}
+
 
 } // namespace android

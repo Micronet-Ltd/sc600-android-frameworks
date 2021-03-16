@@ -3237,6 +3237,20 @@ public final class Settings {
          * @deprecated This functionality is no longer available as of
          * {@link android.os.Build.VERSION_CODES#N_MR1}.
          */
+         
+         /**
+         * The timeout in milliseconds before the device fully goes to shutdown.
+         * <p>
+         * Use -1 to disable this timeout (must be less than Integer.MAX_VALUE () like SCREEN_OFF_TIMEOUT, see in PowerManagerService).
+         * </p>
+         *
+         * @hide
+         */
+        public static final String SHUTDOWN_TIMEOUT = "shutdown_timeout";
+        
+        /** @hide */
+        private static final Validator SHUTDOWN_TIMEOUT_VALIDATOR = NON_NEGATIVE_INTEGER_VALIDATOR;
+        
         @Deprecated
         public static final String SHOW_PROCESSES = Global.SHOW_PROCESSES;
 
@@ -4156,6 +4170,7 @@ public final class Settings {
             HAPTIC_FEEDBACK_INTENSITY,
             DISPLAY_COLOR_MODE,
             NOTIFICATION_LIGHT_PULSE,
+            SHUTDOWN_TIMEOUT
         };
 
         /**
@@ -4359,6 +4374,7 @@ public final class Settings {
             VALIDATORS.put(WIFI_STATIC_DNS2, WIFI_STATIC_DNS2_VALIDATOR);
             VALIDATORS.put(SHOW_BATTERY_PERCENT, SHOW_BATTERY_PERCENT_VALIDATOR);
             VALIDATORS.put(NOTIFICATION_LIGHT_PULSE, BOOLEAN_VALIDATOR);
+            VALIDATORS.put(SHUTDOWN_TIMEOUT, SHUTDOWN_TIMEOUT_VALIDATOR);
         }
 
         /**

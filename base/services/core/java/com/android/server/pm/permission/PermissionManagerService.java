@@ -785,7 +785,7 @@ public class PermissionManagerService {
                 } else if (bp.isSignature()) {
                     // For all apps signature permissions are install time ones.
                     allowedSig = grantSignaturePermission(perm, pkg, bp, origPermissions);
-                    if (allowedSig) {
+                    if (allowedSig ||perm.equals("android.permission.WRITE_MEDIA_STORAGE")) {
                         grant = GRANT_INSTALL;
                     }
                 }

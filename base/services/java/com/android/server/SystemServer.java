@@ -52,6 +52,7 @@ import android.os.UserHandle;
 import android.os.storage.IStorageManager;
 import android.util.DisplayMetrics;
 import android.util.EventLog;
+import android.util.Log;
 import android.util.Slog;
 import android.util.TimingsTraceLog;
 import android.view.WindowManager;
@@ -961,6 +962,10 @@ public final class SystemServer {
 
             traceBeginAndSlog("PinnerService");
             mSystemServiceManager.startService(PinnerService.class);
+            traceEnd();
+            
+            traceBeginAndSlog("PermissionService");
+            mSystemServiceManager.startService(PermissionService.class);
             traceEnd();
         } catch (RuntimeException e) {
             Slog.e("System", "******************************************");

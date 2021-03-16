@@ -33,15 +33,99 @@ import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.CursorAnchorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.InputMethodSession;
-
+import android.content.Intent;
 import com.android.internal.os.HandlerCaller;
 import com.android.internal.os.SomeArgs;
 import com.android.internal.view.IInputMethodSession;
+import com.android.server.vinputs.InputOutputService;
 
+class VinputsNotifier{
+    private static final String TAG = "VinputsNotifier";
+
+    final private static boolean LOG_VINPUTS = false;
+
+    private static VinputsNotifier mInstance = null;
+
+    private static Context mContext = null;
+
+    private InputOutputService mInputOutputService = new InputOutputService();
+
+    private int[] mCurrentVinputs = {0,0,0,0,0,0,0,0};
+
+    private void sentIntent(int vinputNum){
+        Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_VINPUTS_CHANGED);
+        intent.putExtra("VINPUT_NUM", vinputNum ); //vinputs 0 is inginition
+        intent.putExtra("VINPUT_VALUE", mCurrentVinputs[vinputNum]); // F1 = 59 ... F8 = 66
+        if (LOG_VINPUTS) Log.e(TAG,"Sending intent VINPUTS_CHANGED, VINPUT_NUM=" + vinputNum + ", VINPUT_VALUE=" + mCurrentVinputs[vinputNum]);
+        if (mContext == null) {
+            Log.e(TAG,"mContext is null, this should not happen. Cannot send intent");
+        }else{
+            mContext.sendBroadcast(intent);
+        }
+
+    }
+    private VinputsNotifier(){
+        int tempValue = 0;
+        for (int i = 0; i < InputOutputService.NUM_VINPUT; i++) {
+            tempValue = mInputOutputService.readInput(i);
+            if (tempValue == -1) {
+                Log.e(TAG,"Cannot read virtual input "+i);
+            }else{
+                if (LOG_VINPUTS) Log.e(TAG,"Read virtual input "+i+" successfully!");
+                mCurrentVinputs[i] = tempValue;
+                sentIntent(i);
+            }
+        }
+    }
+    public void notifyVinputsChanges(int vinputNum,int vinputValue){
+        if (vinputNum >= InputOutputService.NUM_VINPUT) {
+            Log.e(TAG,"vinputNum "+vinputNum+" out of range, must be between 0 and "+InputOutputService.NUM_VINPUT);
+
+        }
+        if (mCurrentVinputs[vinputNum] != vinputValue) {
+            mCurrentVinputs[vinputNum] = vinputValue;
+            if (LOG_VINPUTS) Log.e(TAG,"vinput "+vinputNum+" updated to "+mCurrentVinputs[vinputNum]);
+            sentIntent(vinputNum);
+        }
+        // check all other vinputs and look for missed events
+//      for (int i = 0; i < InputOutputService.NUM_VINPUT; i++) {
+//
+//          int currentVinput = mInputOutputService.readInput(i);
+//          if (currentVinput == -1) {
+//              Log.e(TAG,"Cannot read virtual input "+i);
+//          }
+//          if (LOG_VINPUTS) Log.e(TAG,"Read virtual input "+i+" successfully!");
+//          if (mCurrentVinputs[i] != currentVinput) {
+//
+//              Intent intent = new Intent();
+//              intent.setAction("VINPUTS_CHANGED");
+//              intent.putExtra("VINPUT_NUM", i ); //vinputs 0 is inginition
+//              intent.putExtra("VINPUT_VALUE", currentVinput); // F1 = 59 ... F8 = 66
+//              if (LOG_VINPUTS) Log.e(TAG,"Sending intent VINPUTS_CHANGED, VINPUT_NUM=" + i + ", VINPUT_VALUE=" + currentVinput);
+//              context.sendBroadcast(intent);
+//
+//              mCurrentVinputs[i] = currentVinput;
+//
+//          }
+//      }
+    }
+
+    public static VinputsNotifier getInstance(Context context){
+        mContext = context;
+        if (mInstance == null) {
+            synchronized (VinputsNotifier.class) {
+                mInstance =new VinputsNotifier();
+            }
+        }
+        return mInstance;
+    }
+}
 class IInputMethodSessionWrapper extends IInputMethodSession.Stub
         implements HandlerCaller.Callback {
     private static final String TAG = "InputMethodWrapper";
     
+    final private static boolean LOG_VINPUTS = false;
     private static final int DO_FINISH_INPUT = 60;
     private static final int DO_DISPLAY_COMPLETIONS = 65;
     private static final int DO_UPDATE_EXTRACTED_TEXT = 67;
@@ -57,9 +141,11 @@ class IInputMethodSessionWrapper extends IInputMethodSession.Stub
     InputMethodSession mInputMethodSession;
     InputChannel mChannel;
     ImeInputEventReceiver mReceiver;
+    Context mContext;
 
     public IInputMethodSessionWrapper(Context context,
             InputMethodSession inputMethodSession, InputChannel channel) {
+        mContext = context;    
         mCaller = new HandlerCaller(context, null,
                 this, true /*asyncHandler*/);
         mInputMethodSession = inputMethodSession;
@@ -229,6 +315,28 @@ class IInputMethodSessionWrapper extends IInputMethodSession.Stub
             mPendingEvents.put(seq, event);
             if (event instanceof KeyEvent) {
                 KeyEvent keyEvent = (KeyEvent)event;
+
+                if (keyEvent.getSource() == InputDevice.SOURCE_VINPUTS &&
+                    keyEvent.getFlags() == keyEvent.FLAG_FROM_SYSTEM) {
+
+                      
+                    if (LOG_VINPUTS){
+                        Log.d(TAG, "VINPUTS event: scanCode "+keyEvent.getScanCode()+", keyCode: "+keyEvent.getKeyCode()+
+                           ", flags: "+keyEvent.getFlags()+", action: "+keyEvent.getAction()+", repeatCount: "+keyEvent.getRepeatCount()+
+                          ", downTime: "+keyEvent.getDownTime()+", characters: "+keyEvent.getCharacters());
+                    }
+
+                    finishInputEvent(event, true); // mark the event as handled
+
+                    //(keyEvent.getKeyCode() - 16) is the vinput number 
+                    VinputsNotifier.getInstance(mContext).notifyVinputsChanges(keyEvent.getKeyCode() - 16,keyEvent.getScanCode());
+
+                }
+                
+                
+                    
+                    
+                    
                 mInputMethodSession.dispatchKeyEvent(seq, keyEvent, this);
             } else {
                 MotionEvent motionEvent = (MotionEvent)event;

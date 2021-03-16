@@ -62,6 +62,7 @@ import android.os.Messenger;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
+import android.os.SystemProperties;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
@@ -2226,6 +2227,13 @@ public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
 
             private void notifyFrequencyConflict() {
                 logd("Notify frequency conflict");
+		
+		if(shouldAvoidPermissions()){
+		  logd("Accepting Drop Wifi");
+		  sendMessage(DROP_WIFI_USER_ACCEPT);
+		  return;
+                }
+		
                 Resources r = Resources.getSystem();
 
                 AlertDialog dialog = new AlertDialog.Builder(mContext)
@@ -2797,6 +2805,11 @@ public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         }
 
         private void notifyP2pEnableFailure() {
+	    if(shouldAvoidPermissions()){
+	      logd("P2p connection failed, dismissing");
+	      return;
+            }
+	    
             Resources r = Resources.getSystem();
             AlertDialog dialog = new AlertDialog.Builder(mContext)
                     .setTitle(r.getString(R.string.wifi_p2p_dialog_title))
@@ -2821,6 +2834,11 @@ public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         }
 
         private void notifyInvitationSent(String pin, String peerAddress) {
+	    if(shouldAvoidPermissions()){
+	      logd("Invitation sent");
+	      return;
+            }
+	    
             Resources r = Resources.getSystem();
 
             final View textEntryView = LayoutInflater.from(mContext)
@@ -2876,8 +2894,35 @@ public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
             dialog.getWindow().setAttributes(attrs);
             dialog.show();
         }
+	
+        private boolean shouldAvoidPermissions(){
+            String boardType = SystemProperties.get("persist.vendor.board.config", "");	    
+            return (boardType.equals("smartcam"));
+        }
+        
+        BroadcastReceiver mResponseReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {				
+                String action = intent.getAction();
+                logd("*******Received broadcast with action: " + action);
+                if(action.equals(Intent.ACTION_SEND)){
+                    sendMessage(PEER_CONNECTION_USER_ACCEPT);
+                    mContext.unregisterReceiver(mResponseReceiver);
+                }
+            }
+        };
 
         private void notifyInvitationReceived() {
+            if(shouldAvoidPermissions()){		
+                IntentFilter mIntentFilter = new IntentFilter();		
+                mIntentFilter.addAction(Intent.ACTION_SEND);
+                mContext.registerReceiver(mResponseReceiver, mIntentFilter);
+								
+                Intent intent = new Intent("com.micronet.wifi.p2p.INVITE_RECEIVED");
+                mContext.sendBroadcast(intent);
+                return;
+            }
+	    
             Resources r = Resources.getSystem();
             final WpsInfo wps = mSavedPeerConfig.wps;
             final View textEntryView = LayoutInflater.from(mContext)

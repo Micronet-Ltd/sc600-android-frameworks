@@ -208,6 +208,9 @@ cc_library_shared {
         "hwbinder/EphemeralStorage.cpp",
         "fd_utils.cpp",
         "com_android_internal_app_ActivityTrigger.cpp",
+        "com_android_server_lights_Light.cpp",
+        "com_android_server_serial_canbus.cpp",
+        "load_micronet_jni.cpp",
     ],
 
     include_dirs: [
@@ -291,6 +294,7 @@ cc_library_shared {
         "libhwui",
         "libdl",
         "libstatslog",
+        "android.hardware.light@2.0",
     ],
 
     generated_sources: ["android_util_StatsLog.cpp"],
