@@ -164,6 +164,7 @@ public final class BatteryService extends SystemService {
     private int mLowBatteryWarningLevel;
     private int mLowBatteryCloseWarningLevel;
     private int mShutdownBatteryTemperature;
+    private int mShutdownBatteryLowTemperature;
 
     private int mPlugType;
     private int mLastPlugType = -1; // Extra state so we can detect first run
@@ -209,7 +210,8 @@ public final class BatteryService extends SystemService {
                 com.android.internal.R.integer.config_lowBatteryCloseWarningBump);
         mShutdownBatteryTemperature = mContext.getResources().getInteger(
                 com.android.internal.R.integer.config_shutdownBatteryTemperature);
-
+        mShutdownBatteryLowTemperature = mContext.getResources().getInteger(
+                com.android.internal.R.integer.config_shutdownBatteryLowTemperature);
         mBatteryLevelsEventQueue = new ArrayDeque<>();
         mMetricsLogger = new MetricsLogger();
 
@@ -360,7 +362,8 @@ public final class BatteryService extends SystemService {
     private void shutdownIfNoPowerLocked() {
         // shut down gracefully if our battery is critically low and we are not powered.
         // wait until the system has booted before attempting to display the shutdown dialog.
-        if (mHealthInfo.batteryLevel == 0 && !isPoweredLocked(BatteryManager.BATTERY_PLUGGED_ANY)) {
+//        if (mHealthInfo.batteryLevel == 0 && !isPoweredLocked(BatteryManager.BATTERY_PLUGGED_ANY)) {
+        if (mBatteryLevelCritical && !isPoweredLocked(BatteryManager.BATTERY_PLUGGED_ANY)) {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
@@ -381,7 +384,8 @@ public final class BatteryService extends SystemService {
         // shut down gracefully if temperature is too high (> 68.0C by default)
         // wait until the system has booted before attempting to display the
         // shutdown dialog.
-        if (mHealthInfo.batteryTemperature > mShutdownBatteryTemperature) {
+//        if (mHealthInfo.batteryTemperature > mShutdownBatteryTemperature) {
+        if (mHealthInfo.batteryTemperature > mShutdownBatteryTemperature || mHealthInfo.batteryTemperature < mShutdownBatteryLowTemperature) {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {

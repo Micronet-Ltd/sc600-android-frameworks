@@ -38,6 +38,8 @@
 #include <stddef.h>
 #include <unistd.h>
 
+#include <queue>
+
 // Maximum supported size of a vibration pattern.
 // Must be at least 2.
 #define MAX_VIBRATE_PATTERN_SIZE 100
@@ -2019,6 +2021,40 @@ private:
     static void addMotionRange(int32_t axisId, const Axis& axis, InputDeviceInfo* info);
     static void setPointerCoordsAxisValue(PointerCoords* pointerCoords, int32_t axis,
             float value);
+};
+// Based on JoystickInputMapper
+class VinputsInputMapper : public InputMapper {
+public:
+    explicit VinputsInputMapper(InputDevice* device);
+    virtual ~VinputsInputMapper();
+
+    virtual uint32_t getSources();
+    virtual void populateDeviceInfo(InputDeviceInfo* deviceInfo);
+    virtual void dump(std::string& dump);
+    virtual void configure(nsecs_t when, const InputReaderConfiguration* config, uint32_t changes);
+    virtual void reset(nsecs_t when);
+    virtual void process(const RawEvent* rawEvent);
+
+private:
+    // Maybe turn it into a list of structures in case vinputs come in very short intervals
+
+    class VinputsEvent{
+    public:
+        nsecs_t mWhen;
+        int32_t mDeviceId;
+        int32_t mType;
+        int32_t mCode;
+        int32_t mValue;
+        VinputsEvent(nsecs_t pWhen,int32_t pDeviceId,int32_t pType,int32_t pCode,int32_t pValue);
+//          mWhen(pWhen),mDeviceId(pDeviceId),mType(pType),mCode(pCode),mValue(pValue);// {}
+
+
+    };
+
+    std::queue<VinputsEvent*> mEventsQueue;
+
+    void sync(nsecs_t when, bool force);
+
 };
 
 } // namespace android

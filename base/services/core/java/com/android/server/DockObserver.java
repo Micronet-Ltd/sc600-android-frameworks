@@ -16,19 +16,27 @@
 
 package com.android.server;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.database.ContentObserver;
 import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
+import android.os.FileObserver;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UEventObserver;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -37,6 +45,9 @@ import android.util.Slog;
 
 import com.android.internal.util.DumpUtils;
 
+import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -52,6 +63,10 @@ final class DockObserver extends SystemService {
     private static final String DOCK_STATE_PATH = "/sys/class/switch/dock/state";
 
     private static final int MSG_DOCK_STATE_CHANGED = 0;
+    private static final int IN_CRADLE = 1;
+	private static final int IGNITION_ON = 2;
+	private static final int SMART_CRADLE = 4;
+	private static final int OBC_CRADLE = 8;
 
     private final PowerManager mPowerManager;
     private final PowerManager.WakeLock mWakeLock;
@@ -68,6 +83,15 @@ final class DockObserver extends SystemService {
     private boolean mUpdatesStopped;
 
     private final boolean mAllowTheaterModeWakeFromDock;
+    
+    private static final String SHUTDOWN_ACTION_REQ = "com.android.server.SHUTDOWN_ACTION_REQ";
+    private int mShutdownTimeout = -1;
+    private static final int MIN_SHUTDOWN_TIMEOUT = 15000;
+
+    private SettingsObserver mSettingsObserver;
+    private BroadcastReceiver mShutdownTimeoutListener = null;
+    private McuFileObserver mMcuFileObserver;
+ 
 
     public DockObserver(Context context) {
         super(context);
@@ -85,6 +109,10 @@ final class DockObserver extends SystemService {
     @Override
     public void onStart() {
         publishBinderService(TAG, new BinderService());
+        if(Build.MODEL.contains("MSCAM")){
+            mMcuFileObserver = new McuFileObserver();
+            mMcuFileObserver.startWatching();        
+        } 
     }
 
     @Override
@@ -93,10 +121,19 @@ final class DockObserver extends SystemService {
             synchronized (mLock) {
                 mSystemReady = true;
 
+                if(Build.MODEL.contains("MSCAM")){
+                    readAndUpdateMcuFpgaVersions();
+                } else {
+                    SystemProperties.set("hw.build.version.mcu", "unknown");
+                    SystemProperties.set("hw.build.version.fpga", "unknown");
+                }
                 // don't bother broadcasting undocked here
                 if (mReportedDockState != Intent.EXTRA_DOCK_STATE_UNDOCKED) {
                     updateLocked();
                 }
+                startContentObserver();
+                registerShutdownTimeout();
+                startShutdownTimeout(0 == (IGNITION_ON & mReportedDockState));//1st time on SystemReady
             }
         }
     }
@@ -167,7 +204,11 @@ final class DockObserver extends SystemService {
             // Pack up the values and broadcast them to everyone
             Intent intent = new Intent(Intent.ACTION_DOCK_EVENT);
             intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
-            intent.putExtra(Intent.EXTRA_DOCK_STATE, mReportedDockState);
+            intent.putExtra(Intent.EXTRA_DOCK_STATE, convertDockState(mReportedDockState));
+            intent.putExtra("DockValue", mReportedDockState);
+            if (Build.MODEL.contains("MSCAM")){
+                readAndUpdateMcuFpgaVersions();
+            }
 
             boolean dockSoundsEnabled = Settings.Global.getInt(cr,
                     Settings.Global.DOCK_SOUNDS_ENABLED, 1) == 1;
@@ -233,6 +274,32 @@ final class DockObserver extends SystemService {
             }
         }
     };
+    
+    /* 
+	 *  Convert the Docking state received from kernel
+	 *  to the expected Intent.EXTRA_DOCK_STATE_? values
+	 *  received from kernel:
+	 *  IN_CRADLE | IGNITION_ON
+	 *	send in Intent:
+	 *  Intent.EXTRA_DOCK_STATE_UNDOCKED, Intent.EXTRA_DOCK_STATE_DESK
+	 *  	or Intent.EXTRA_DOCK_STATE_CAR
+	 */
+
+    private final int convertDockState(int receivedDockStat) {
+		if ((receivedDockStat & IGNITION_ON) == IGNITION_ON) {
+			// IGNITION_ON can be detected only if in cradle
+			// so no need to check if IN_CRADLE
+			return Intent.EXTRA_DOCK_STATE_CAR;
+		} else if ((receivedDockStat & OBC_CRADLE) == OBC_CRADLE) {
+			return Intent.EXTRA_DOCK_STATE_DESK;
+		} else if ((receivedDockStat & SMART_CRADLE) == SMART_CRADLE) {
+			return Intent.EXTRA_DOCK_STATE_HE_DESK;
+		} else if ((receivedDockStat & IN_CRADLE) == IN_CRADLE) {
+			return Intent.EXTRA_DOCK_STATE_LE_DESK;
+		} else {
+			return Intent.EXTRA_DOCK_STATE_UNDOCKED;
+		}
+	}
 
     private final UEventObserver mObserver = new UEventObserver() {
         @Override
@@ -241,9 +308,11 @@ final class DockObserver extends SystemService {
                 Slog.v(TAG, "Dock UEVENT: " + event.toString());
             }
 
+            int newState = Integer.parseInt(event.get("SWITCH_STATE"));
             try {
                 synchronized (mLock) {
-                    setActualDockStateLocked(Integer.parseInt(event.get("SWITCH_STATE")));
+                    setActualDockStateLocked(newState);
+                    startShutdownTimeout(0 == (IGNITION_ON & newState));
                 }
             } catch (NumberFormatException e) {
                 Slog.e(TAG, "Could not parse switch state from event " + event);
@@ -290,6 +359,136 @@ final class DockObserver extends SystemService {
                 }
             } finally {
                 Binder.restoreCallingIdentity(ident);
+            }
+        }
+    }
+    
+    private void setAlarmShutdown (long duration) {
+        AlarmManager am = (AlarmManager)getContext().getSystemService(Context.ALARM_SERVICE);
+        Intent i = new Intent(SHUTDOWN_ACTION_REQ);
+
+        PendingIntent pi = PendingIntent.getBroadcast(getContext(), 0, i, PendingIntent.FLAG_UPDATE_CURRENT);
+        Slog.d(TAG, "set alarm after " + duration);
+        am.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + duration, pi);
+    }
+    private void cancelAlarmShutdown() {
+        AlarmManager am = (AlarmManager)getContext().getSystemService(Context.ALARM_SERVICE);
+        Intent i = new Intent(SHUTDOWN_ACTION_REQ);
+
+        PendingIntent pi = PendingIntent.getBroadcast(getContext(), 0, i, PendingIntent.FLAG_NO_CREATE);
+        if(null != pi)
+        	am.cancel(pi);
+        Slog.d(TAG, "shutdown canceled");
+    }
+    public void registerShutdownTimeout() {
+    	mShutdownTimeout = getShutdownTimeoutDuration();
+        if (mShutdownTimeoutListener == null) {
+        	mShutdownTimeoutListener = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    Slog.d(TAG, "ShutdownTimeout expired");
+                    if(0 == (IGNITION_ON & mReportedDockState))//maybe changed
+                    	powerOff();
+                }
+            };
+            IntentFilter intentFilter = new IntentFilter(SHUTDOWN_ACTION_REQ);
+            getContext().registerReceiver(mShutdownTimeoutListener, intentFilter);
+        }
+    }
+    private void powerOff() {
+        SystemProperties.set("sys.powerctl", "shutdown");
+    }
+    private void startShutdownTimeout(boolean start) {
+    	Slog.d(TAG, "startShutdownTimeout: start " + start + " mShutdownTimeout " + mShutdownTimeout);
+    	
+        if(start) {
+        	int dur = mShutdownTimeout;
+        	if(-1 != dur)
+        		setAlarmShutdown(dur);
+        	else
+            	cancelAlarmShutdown();
+        }
+        else {		            	
+        	cancelAlarmShutdown();
+        }    	
+    }
+    private int getShutdownTimeoutDuration() {
+        ContentResolver resolver = getContext().getContentResolver();
+
+        int ShutdownTimeout = Settings.System.getInt(resolver, Settings.System.SHUTDOWN_TIMEOUT, -1);
+
+        if(0 < ShutdownTimeout && Integer.MAX_VALUE > ShutdownTimeout) {
+        	ShutdownTimeout = (MIN_SHUTDOWN_TIMEOUT > ShutdownTimeout) ? MIN_SHUTDOWN_TIMEOUT : ShutdownTimeout;
+        	return ShutdownTimeout;
+        }
+        return -1; 	
+    }
+
+    private void startContentObserver() {
+        mSettingsObserver = new SettingsObserver(new Handler());
+
+        final ContentResolver resolver = getContext().getContentResolver();
+        
+        resolver.registerContentObserver(Settings.System.getUriFor(Settings.System.SHUTDOWN_TIMEOUT),
+                false, mSettingsObserver, UserHandle.USER_ALL);
+
+    }
+
+    private void handleSettingsChangedLocked() {
+        int ShutdownTimeout = getShutdownTimeoutDuration();
+        Slog.d(TAG, "updated shutdown_timeout " + ShutdownTimeout);
+        
+        if(ShutdownTimeout != mShutdownTimeout) {
+        	mShutdownTimeout = ShutdownTimeout;
+           	startShutdownTimeout(0 == (IGNITION_ON & mActualDockState));
+        }
+    }
+    
+    private final class SettingsObserver extends ContentObserver {
+        public SettingsObserver(Handler handler) {
+            super(handler);
+        }
+
+        @Override
+        public void onChange(boolean selfChange, Uri uri) {
+            synchronized (mLock) {
+                handleSettingsChangedLocked();
+            }
+        }
+    }
+    
+    private void readAndUpdateMcuFpgaVersions(){
+        SystemProperties.set("hw.build.version.mcu", getVersion("/proc/mcu_version"));
+        SystemProperties.set("hw.build.version.fpga", getVersion("/proc/fpga_version"));
+    }
+    
+    private String getVersion(String path){
+        String version = "unknown";
+        String line = null;
+        try {
+            FileReader fileReader = new FileReader(path);
+            BufferedReader bufferedReader = new BufferedReader(fileReader);
+            if ((line = bufferedReader.readLine()) != null) {
+                version = line;
+            }
+            bufferedReader.close();
+        } catch (FileNotFoundException ex) {
+            ex.printStackTrace();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return version;
+    }
+        
+    private class McuFileObserver extends FileObserver {
+        public McuFileObserver() {
+            super("/proc", FileObserver.CLOSE_WRITE);
+        }
+
+        @Override
+        public void onEvent(int event, String path) {
+            if(path.equals("mcu_version")){
+                readAndUpdateMcuFpgaVersions();
             }
         }
     }
