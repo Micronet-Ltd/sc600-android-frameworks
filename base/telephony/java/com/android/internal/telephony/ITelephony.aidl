@@ -1528,4 +1528,20 @@ interface ITelephony {
      * @hide
      */
     void refreshUiccProfile(int subId);
+     /*lovdream extended start*/
+    String getSMSAutoRegisterInfo(in int itemId);
+    void setSMSAutoRegisterInfo(in String values, in int itemId);
+    String getSN();
+    String getCUReferenceNumber();
+    String getNvFactoryData3I();
+    byte[] getNvFactoryData3IByte();
+    void setNvFactoryData3I(String result);
+    void setNvFactoryData3IByte(in byte[] bresult);
+    String getMeid();
+    String getMEIDCD();
+    String getIMEI();
+    String getIMEI2();
+    String getWlanAddr();
+    String getBtAddr();
+    /*lovdream extended end*/
 }

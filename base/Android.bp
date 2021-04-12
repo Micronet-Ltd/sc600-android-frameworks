@@ -358,6 +358,8 @@ java_library {
         "core/java/android/speech/IRecognitionService.aidl",
         "core/java/android/speech/tts/ITextToSpeechCallback.aidl",
         "core/java/android/speech/tts/ITextToSpeechService.aidl",
+	"core/java/com/lovdream/ILovdreamDevice.aidl",
+        "core/java/com/lovdream/ILovdream.aidl",
         "core/java/com/android/internal/app/IAppOpsActiveCallback.aidl",
         "core/java/com/android/internal/app/IAppOpsCallback.aidl",
         "core/java/com/android/internal/app/IAppOpsService.aidl",
