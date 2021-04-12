@@ -3067,6 +3067,8 @@ public abstract class Context {
             COMPANION_DEVICE_SERVICE,
             CROSS_PROFILE_APPS_SERVICE,
             //@hide: SYSTEM_UPDATE_SERVICE,
+            LOVDREAMDEVICES_SERVICE,
+            LOVDREAM_SERVICE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ServiceName {}
@@ -3532,7 +3534,8 @@ public abstract class Context {
     public static final String NETWORK_POLICY_SERVICE = "netpolicy";
     /** {@hide} */
     public static final String NETWORK_WATCHLIST_SERVICE = "network_watchlist";
-
+    public static final String LOVDREAMDEVICES_SERVICE = "lovd_device";
+    public static final String LOVDREAM_SERVICE = "lovdream";
     /**
      * Use with {@link #getSystemService(String)} to retrieve a {@link
      * android.net.wifi.WifiManager} for handling management of

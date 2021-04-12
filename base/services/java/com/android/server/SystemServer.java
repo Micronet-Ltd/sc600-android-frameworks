@@ -753,6 +753,9 @@ public final class SystemServer {
         final Context context = mSystemContext;
         VibratorService vibrator = null;
         IStorageManager storageManager = null;
+         //add by xxf ;add mmi sevices for mmi start
+        LovdreamDeviceService mLovdreamDeviceService =null;
+        //add by xxf ;add mmi sevices for mmi end
         NetworkManagementService networkManagement = null;
         IpSecService ipSecService = null;
         NetworkStatsService networkStats = null;
@@ -818,18 +821,32 @@ public final class SystemServer {
                     new KeyAttestationApplicationIdProviderService(context));
             traceEnd();
 
+            //add by xxf ;add mmi sevices for mmi start
+    	    if (true) {
+                    traceBeginAndSlog("StartLovedreamWriteService");
+                    try {
+                    	mLovdreamDeviceService =  LovdreamDeviceService.getInstance(context);
+                        ServiceManager.addService(Context.LOVDREAMDEVICES_SERVICE, mLovdreamDeviceService);
+                        Log.d("xxfppp", "add mLovdreamDeviceService---->");
+                    } catch (Throwable e) {
+                        reportWtf("starting LovedreamWriteService Service", e);
+                    }
+                    traceEnd();
+                }
+
             traceBeginAndSlog("StartKeyChainSystemService");
             mSystemServiceManager.startService(KeyChainSystemService.class);
             traceEnd();
 
-            traceBeginAndSlog("StartSchedulingPolicyService");
+             traceBeginAndSlog("StartSchedulingPolicyService");
             ServiceManager.addService("scheduling_policy", new SchedulingPolicyService());
             traceEnd();
 
             traceBeginAndSlog("StartTelecomLoaderService");
             mSystemServiceManager.startService(TelecomLoaderService.class);
             traceEnd();
-
+      
+           
             traceBeginAndSlog("StartTelephonyRegistry");
             telephonyRegistry = new TelephonyRegistry(context);
             ServiceManager.addService("telephony.registry", telephonyRegistry);
