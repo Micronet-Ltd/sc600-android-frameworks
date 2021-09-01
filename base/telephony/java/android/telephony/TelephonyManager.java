@@ -8000,4 +8000,50 @@ public class TelephonyManager {
         }
         return false;
     }
+    
+     public String getIMEI() {
+        ITelephony telephony = getITelephony();
+        if (telephony == null) return null;
+        try {
+            return telephony.getIMEI();
+        } catch (RemoteException ex) {
+            return null;
+        } catch (NullPointerException ex) {
+            return null;
+        }
+    }
+    public String getIMEI2() {
+        ITelephony telephony = getITelephony();
+        if (telephony == null) return null;
+        try {
+            return telephony.getIMEI2();
+        } catch (RemoteException ex) {
+            return null;
+        } catch (NullPointerException ex) {
+            return null;
+        }
+    }
+    public String getWlanAddr() {
+        ITelephony telephony = getITelephony();
+        if (telephony == null) return null;
+        try {
+            return telephony.getWlanAddr();
+        } catch (RemoteException ex) {
+            return null;
+        } catch (NullPointerException ex) {
+            return null;
+        }
+    }
+    public String getBtAddr() {
+        ITelephony telephony = getITelephony();
+        if (telephony == null) return null;
+        try {
+            return telephony.getBtAddr();
+        } catch (RemoteException ex) {
+            return null;
+        } catch (NullPointerException ex) {
+            return null;
+        }
+    }
+    /*lovdream extended end*/
 }
