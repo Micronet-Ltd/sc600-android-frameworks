@@ -59,8 +59,8 @@ import java.io.PrintWriter;
 final class DockObserver extends SystemService {
     private static final String TAG = "DockObserver";
 
-    private static final String DOCK_UEVENT_MATCH = "DEVPATH=/devices/virtual/switch/dock";
-    private static final String DOCK_STATE_PATH = "/sys/class/switch/dock/state";
+    private static final String DOCK_UEVENT_MATCH = "DEVPATH=/devices/virtual/switch_dock/dock";
+    private static final String DOCK_STATE_PATH = "/sys/class/switch_dock/dock/state";
 
     private static final int MSG_DOCK_STATE_CHANGED = 0;
     private static final int IN_CRADLE = 1;
