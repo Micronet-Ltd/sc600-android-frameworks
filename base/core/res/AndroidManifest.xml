@@ -638,7 +638,20 @@
     <!-- For IdleController -->
     <protected-broadcast android:name="android.intent.action.DOCK_IDLE" />
     <protected-broadcast android:name="android.intent.action.DOCK_ACTIVE" />
-
+    
+    
+    <!-- For Redbend Client -->
+    <protected-broadcast android:name="com.redbend.client.action.DOWNLOAD_FOUND" />
+    <protected-broadcast android:name="com.redbend.client.action.DOWNLOAD_STARTED" />
+    <protected-broadcast android:name="com.redbend.client.action.DOWNLOAD_COMPLETED" />
+    <protected-broadcast android:name="com.redbend.client.action.DOWNLOAD_FAILED" />
+    
+    <protected-broadcast android:name="com.redbend.client.action.UPDATE_STARTED" />
+    <protected-broadcast android:name="com.redbend.client.action.UPDATE_COMPLETED" />
+    <protected-broadcast android:name="com.redbend.client.action.UPDATE_FAILED" />
+    <protected-broadcast android:name="com.redbend.client.action.STATE" />
+    
+    
     <!-- ====================================================================== -->
     <!--                          RUNTIME PERMISSIONS                           -->
     <!-- ====================================================================== -->
