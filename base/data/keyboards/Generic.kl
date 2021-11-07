@@ -213,7 +213,7 @@ key 180   NUMPAD_RIGHT_PAREN
 # key 191   F21
 # key 192   F22
 # key 193   F23
-# key 194   F24
+key 194   WINDOW
 # key 195 (undefined)
 # key 196 (undefined)
 # key 197 (undefined)
