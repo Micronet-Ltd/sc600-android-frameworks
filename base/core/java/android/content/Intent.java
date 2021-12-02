@@ -3090,6 +3090,13 @@ public class Intent implements Parcelable, Cloneable {
      */
     @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
     public static final String ACTION_VINPUTS_CHANGED = "android.intent.action.VINPUTS_CHANGED";
+    
+    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+    public static final String ACTION_PANIC_BUTTON = "android.intent.action.ACTION_PANIC_BUTTON";
+    
+    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+    public static final String ACTION_PANIC_BUTTON_RELEASE = "android.intent.action.ACTION_PANIC_BUTTON_RELEASE";
+    
     @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
     public static final String ACTION_IDLE_MAINTENANCE_END =
             "android.intent.action.ACTION_IDLE_MAINTENANCE_END";

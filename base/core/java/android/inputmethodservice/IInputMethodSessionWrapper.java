@@ -142,6 +142,12 @@ class IInputMethodSessionWrapper extends IInputMethodSession.Stub
     InputChannel mChannel;
     ImeInputEventReceiver mReceiver;
     Context mContext;
+    
+    private static int counter = 0;
+    private static long prevTime = 0;
+    private static int counterRelease = 0;
+    private static long prevTimeRelease = 0;
+
 
     public IInputMethodSessionWrapper(Context context,
             InputMethodSession inputMethodSession, InputChannel channel) {
@@ -333,8 +339,39 @@ class IInputMethodSessionWrapper extends IInputMethodSession.Stub
 
                 }
                 
+                if(keyEvent.getKeyCode() == KeyEvent.KEYCODE_WINDOW && keyEvent.getAction() == 0 ){
                 
-                    
+                    long currTime = System.currentTimeMillis();
+                    if (currTime - prevTime < 1000 && counter >= 2){
+                        //ignore it - don't send the intent more than 2 times per sec 
+                    } else {
+                        if(currTime - prevTime >= 1000){
+                            counter = 0;
+                        }
+                        counter++;
+                        prevTime = currTime;
+                        Intent intent = new Intent();
+                        intent.setAction(Intent.ACTION_PANIC_BUTTON);
+                        mContext.sendBroadcast(intent);
+                    }
+                                              
+                } else if(keyEvent.getKeyCode() == KeyEvent.KEYCODE_WINDOW && keyEvent.getAction() == 1 ){
+                
+                    long currTimeRelease = System.currentTimeMillis();
+                    if (currTimeRelease - prevTimeRelease < 1000 && counterRelease >= 2){
+                        //ignore it - don't send the intent more than 2 times per sec 
+                    } else {
+                        if(currTimeRelease - prevTimeRelease >= 1000){
+                            counterRelease = 0;
+                        }
+                        counterRelease++;
+                        prevTimeRelease = currTimeRelease;
+                        Intent intentRelease = new Intent();
+                        intentRelease.setAction(Intent.ACTION_PANIC_BUTTON_RELEASE);
+                        mContext.sendBroadcast(intentRelease);
+                    }
+                                              
+                }
                     
                     
                 mInputMethodSession.dispatchKeyEvent(seq, keyEvent, this);
