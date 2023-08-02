@@ -17,9 +17,9 @@ public class InputOutputService{
     final private String in6 = "/sys/class/misc/vinputs/in6_input";
     final private String in7 = "/sys/class/misc/vinputs/in7_input";    
     final private String inAll = "/sys/class/misc/vinputs/in_all";
-    final private String setOutput = "/sys/class/switch/dock/outs_mask_set";
-    final private String clearOutput = "/sys/class/switch/dock/outs_mask_clr";
-    final private String stateOutput = "/sys/class/switch/dock/outs_mask_state";
+    final private String setOutput = "/sys/class/switch_dock/dock/outs_mask_set";
+    final private String clearOutput = "/sys/class/switch_dock/dock/outs_mask_clr";
+    final private String stateOutput = "/sys/class/switch_dock/dock/outs_mask_state";
     
     final public static int NUM_VINPUT = 8;
     

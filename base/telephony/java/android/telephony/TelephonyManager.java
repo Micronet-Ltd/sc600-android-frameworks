@@ -3116,14 +3116,16 @@ public class TelephonyManager {
                 number = telephony.getLine1NumberForDisplay(subId, mContext.getOpPackageName());
         } catch (RemoteException ex) {
         } catch (NullPointerException ex) {
+            return null;
         }
         if (number != null) {
             return number;
         }
         try {
             IPhoneSubInfo info = getSubscriberInfo();
-            if (info == null)
+            if (info == null) {
                 return null;
+            }
             return info.getLine1NumberForSubscriber(subId, mContext.getOpPackageName());
         } catch (RemoteException ex) {
             return null;
