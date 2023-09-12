@@ -209,7 +209,7 @@ cc_library_shared {
         "fd_utils.cpp",
         "com_android_internal_app_ActivityTrigger.cpp",
         "com_android_server_lights_Light.cpp",
-        "com_android_server_serial_canbus.cpp",
+        "com_android_server_socket_canbus.cpp",
         "load_micronet_jni.cpp",
     ],
 

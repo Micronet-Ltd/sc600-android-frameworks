@@ -20,7 +20,7 @@
 #include <nativehelper/JNIHelp.h>
 #include "android_runtime/AndroidRuntime.h"
 #include "com_android_server_lights_Light.h"
-#include "com_android_server_serial_canbus.h"
+#include "com_android_server_socket_canbus.h"
 //#include "com_android_server_vinputs_Vinputs.h"
 //#include "load_micronet_jni.h"
 

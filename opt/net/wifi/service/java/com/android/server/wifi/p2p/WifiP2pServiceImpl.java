@@ -2228,10 +2228,10 @@ public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
             private void notifyFrequencyConflict() {
                 logd("Notify frequency conflict");
 		
-		if(shouldAvoidPermissions()){
-		  logd("Accepting Drop Wifi");
-		  sendMessage(DROP_WIFI_USER_ACCEPT);
-		  return;
+				if (shouldAvoidPermissions()) {
+		  			logd("Accepting Drop Wifi");
+		  			sendMessage(DROP_WIFI_USER_ACCEPT);
+		  			return;
                 }
 		
                 Resources r = Resources.getSystem();
@@ -2805,9 +2805,9 @@ public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         }
 
         private void notifyP2pEnableFailure() {
-	    if(shouldAvoidPermissions()){
-	      logd("P2p connection failed, dismissing");
-	      return;
+	    	if (shouldAvoidPermissions()) {
+	      		logd("P2p connection failed, dismissing");
+	      		return;
             }
 	    
             Resources r = Resources.getSystem();
@@ -2834,9 +2834,9 @@ public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         }
 
         private void notifyInvitationSent(String pin, String peerAddress) {
-	    if(shouldAvoidPermissions()){
-	      logd("Invitation sent");
-	      return;
+	    	if (shouldAvoidPermissions()) {
+	      		logd("Invitation sent");
+	      		return;
             }
 	    
             Resources r = Resources.getSystem();
