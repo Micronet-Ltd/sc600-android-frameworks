@@ -3888,8 +3888,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     }
                 }
                 
-            }
-            else {
+            } else {
                 if (!keyguardOn) {
                     if (down && repeatCount == 0) {
                         preloadRecentApps();

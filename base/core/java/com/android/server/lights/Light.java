@@ -92,10 +92,12 @@ public class Light {
                     ": brightness=0x" + Integer.toHexString(brightness));
                 return;
             }
-            int color = brightness & 0x000000ff;
-            color = 0xff000000 | (color << 16) | (color << 8) | color;
-            Slog.w(TAG, "color: " + color + "hex: " + Integer.toHexString(color));
-            setLightLocked(color, LIGHT_FLASH_NONE, 0, 0, brightnessMode);
+            //int color = brightness & 0x000000ff;
+            //color = 0xff000000 | (color << 16) | (color << 8) | color;
+            if (DEBUG) {
+                Slog.w(TAG, "color: " + brightness + "hex: " + Integer.toHexString(brightness));
+            }
+            setLightLocked(brightness, LIGHT_FLASH_NONE, 0, 0, brightnessMode);
         }
     }
 
@@ -155,10 +157,10 @@ public class Light {
 
         if (!mInitialized || color != mColor || mode != mMode || onMS != mOnMS ||
             offMS != mOffMS || mBrightnessMode != brightnessMode) {
-            //if (DEBUG) {
+            if (DEBUG) {
                 Slog.v(TAG, "setLight #" + mId + ": color=#"
                     + Integer.toHexString(color) + ": brightnessMode=" + brightnessMode);
-          //  }
+            }
             mInitialized = true;
             mLastColor = mColor;
             mColor = color;
