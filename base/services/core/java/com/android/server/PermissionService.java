@@ -48,13 +48,17 @@ final class PermissionService extends SystemService {
                 packageInfo = context.getPackageManager().getPackageInfo(packageName, PackageManager.GET_PERMISSIONS);
                 permissionsList = packageInfo.requestedPermissions;
                 for(String p: permissionsList){
-                    PermissionInfo permissionInfo = context.getPackageManager().getPermissionInfo(p,0);
-                    int basePermissionType = permissionInfo.getProtection();
-                    int permissionFlags = permissionInfo.getProtectionFlags();
+                    try {
+                        PermissionInfo permissionInfo = context.getPackageManager().getPermissionInfo(p,0);
+                        int basePermissionType = permissionInfo.getProtection();
+                        int permissionFlags = permissionInfo.getProtectionFlags();
                     
-                    if(isRuntime(basePermissionType) || isDevelopment(basePermissionType, permissionFlags)){
-                        Log.d(TAG, "Grant " + p + " permission to " + packageName);
-                        mServiceInternal.grantRuntimePermission(packageName, p, 0, true);
+                        if(isRuntime(basePermissionType) || isDevelopment(basePermissionType, permissionFlags)){
+                            Log.d(TAG, "Grant " + p + " permission to " + packageName);
+                            mServiceInternal.grantRuntimePermission(packageName, p, 0, true);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 }
             } catch (PackageManager.NameNotFoundException e) {
