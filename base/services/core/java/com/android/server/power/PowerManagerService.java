@@ -1032,61 +1032,6 @@ public final class PowerManagerService extends SystemService
             }
         }
     }
-    
-    private void acquireWakeLockInternal(IBinder lock, int flags, String tag, String packageName,
-            WorkSource ws, String historyTag, int uid, int pid, String lockName) {
-        synchronized (mLock) {
-            if (DEBUG_SPEW) {
-                Slog.d(TAG, "acquireWakeLockInternal: lock=" + Objects.hashCode(lock)
-                        + ", flags=0x" + Integer.toHexString(flags)
-                        + ", tag=\"" + tag + "\", ws=" + ws + ", uid=" + uid + ", pid=" + pid);
-            }
-
-            WakeLock wakeLock;
-            int index = findWakeLockIndexLocked(lock);
-            boolean notifyAcquire;
-            if (index >= 0) {
-                wakeLock = mWakeLocks.get(index);
-                if (!wakeLock.hasSameProperties(flags, tag, ws, uid, pid)) {
-                    // Update existing wake lock.  This shouldn't happen but is harmless.
-                    notifyWakeLockChangingLocked(wakeLock, flags, tag, packageName,
-                            uid, pid, ws, historyTag);
-                    wakeLock.updateProperties(flags, tag, packageName, ws, historyTag, uid, pid);
-                }
-                notifyAcquire = false;
-            } else {
-                UidState state = mUidState.get(uid);
-                if (state == null) {
-                    state = new UidState(uid);
-                    state.mProcState = ActivityManager.PROCESS_STATE_NONEXISTENT;
-                    mUidState.put(uid, state);
-                }
-                state.mNumWakeLocks++;
-                wakeLock = new WakeLock(lock, flags, tag, packageName, ws, historyTag, uid, pid,
-                        state);
-                try {
-                    lock.linkToDeath(wakeLock, 0);
-                } catch (RemoteException ex) {
-                    throw new IllegalArgumentException("Wake lock is already dead.");
-                }
-                mWakeLocks.add(wakeLock);
-                setWakeLockDisabledStateLocked(wakeLock);
-                notifyAcquire = true;
-            }
-
-            applyWakeLockFlagsOnAcquireLocked(wakeLock, uid);
-            mDirty |= DIRTY_WAKE_LOCKS;
-            updatePowerStateLocked(lockName);
-            if (notifyAcquire) {
-                // This needs to be done last so we are sure we have acquired the
-                // kernel wake lock.  Otherwise we have a race where the system may
-                // go to sleep between the time we start the accounting in battery
-                // stats and when we actually get around to telling the kernel to
-                // stay awake.
-                notifyWakeLockAcquiredLocked(wakeLock);
-            }
-        }
-    }
 
     @SuppressWarnings("deprecation")
     private static boolean isScreenLock(final WakeLock wakeLock) {
@@ -1142,32 +1087,6 @@ public final class PowerManagerService extends SystemService
             removeWakeLockLocked(wakeLock, index);
         }
     }
-    
-    private void releaseWakeLockInternal(IBinder lock, int flags, String lockName) {
-        synchronized (mLock) {
-            int index = findWakeLockIndexLocked(lock);
-            if (index < 0) {
-                if (DEBUG_SPEW) {
-                    Slog.d(TAG, "releaseWakeLockInternal: lock=" + Objects.hashCode(lock)
-                            + " [not found], flags=0x" + Integer.toHexString(flags));
-                }
-                return;
-            }
-
-            WakeLock wakeLock = mWakeLocks.get(index);
-            if (DEBUG_SPEW) {
-                Slog.d(TAG, "releaseWakeLockInternal: lock=" + Objects.hashCode(lock)
-                        + " [" + wakeLock.mTag + "], flags=0x" + Integer.toHexString(flags));
-            }
-
-            if ((flags & PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY) != 0) {
-                mRequestWaitForNegativeProximity = true;
-            }
-
-            wakeLock.mLock.unlinkToDeath(wakeLock, 0);
-            removeWakeLockLocked(wakeLock, index, lockName);
-        }
-    }
 
     private void handleWakeLockDeath(WakeLock wakeLock) {
         synchronized (mLock) {
@@ -1198,21 +1117,6 @@ public final class PowerManagerService extends SystemService
         applyWakeLockFlagsOnReleaseLocked(wakeLock);
         mDirty |= DIRTY_WAKE_LOCKS;
         updatePowerStateLocked();
-    }
-    
-    private void removeWakeLockLocked(WakeLock wakeLock, int index, String lockName) {
-        mWakeLocks.remove(index);
-        UidState state = wakeLock.mUidState;
-        state.mNumWakeLocks--;
-        if (state.mNumWakeLocks <= 0 &&
-                state.mProcState == ActivityManager.PROCESS_STATE_NONEXISTENT) {
-            mUidState.remove(state.mUid);
-        }
-        notifyWakeLockReleasedLocked(wakeLock);
-
-        applyWakeLockFlagsOnReleaseLocked(wakeLock);
-        mDirty |= DIRTY_WAKE_LOCKS;
-        updatePowerStateLocked(lockName);
     }
 
     private void applyWakeLockFlagsOnReleaseLocked(WakeLock wakeLock) {
@@ -1737,59 +1641,6 @@ public final class PowerManagerService extends SystemService
             // Because we might release the last suspend blocker here, we need to make sure
             // we finished everything else first!
             updateSuspendBlockerLocked();
-        } finally {
-            Trace.traceEnd(Trace.TRACE_TAG_POWER);
-        }
-    }
-    
-    private void updatePowerStateLocked(String lockName) {
-        if (!mSystemReady || mDirty == 0) {
-            return;
-        }
-        if (!Thread.holdsLock(mLock)) {
-            Slog.wtf(TAG, "Power manager lock was not held when calling updatePowerStateLocked");
-        }
-
-        Trace.traceBegin(Trace.TRACE_TAG_POWER, "updatePowerState");
-        try {
-            // Phase 0: Basic state updates.
-            updateIsPoweredLocked(mDirty);
-            updateStayOnLocked(mDirty);
-            updateScreenBrightnessBoostLocked(mDirty);
-
-            // Phase 1: Update wakefulness.
-            // Loop because the wake lock and user activity computations are influenced
-            // by changes in wakefulness.
-            final long now = SystemClock.uptimeMillis();
-            int dirtyPhase2 = 0;
-            for (;;) {
-                int dirtyPhase1 = mDirty;
-                dirtyPhase2 |= dirtyPhase1;
-                mDirty = 0;
-
-                updateWakeLockSummaryLocked(dirtyPhase1);
-                updateUserActivitySummaryLocked(now, dirtyPhase1);
-                if (!updateWakefulnessLocked(dirtyPhase1)) {
-                    break;
-                }
-            }
-
-            // Phase 2: Lock profiles that became inactive/not kept awake.
-            updateProfilesLocked(now);
-
-            // Phase 3: Update display power state.
-            final boolean displayBecameReady = updateDisplayPowerStateLocked(dirtyPhase2);
-
-            // Phase 4: Update dream state (depends on display ready signal).
-            updateDreamLocked(dirtyPhase2, displayBecameReady);
-
-            // Phase 5: Send notifications, if needed.
-            finishWakefulnessChangeIfNeededLocked();
-
-            // Phase 6: Update suspend blocker.
-            // Because we might release the last suspend blocker here, we need to make sure
-            // we finished everything else first!
-            updateSuspendBlockerLocked(lockName);
         } finally {
             Trace.traceEnd(Trace.TRACE_TAG_POWER);
         }
@@ -2778,61 +2629,6 @@ public final class PowerManagerService extends SystemService
         }
         if (!needDisplaySuspendBlocker && mHoldingDisplaySuspendBlocker) {
             mDisplaySuspendBlocker.release();
-            mHoldingDisplaySuspendBlocker = false;
-        }
-
-        // Enable auto-suspend if needed.
-        if (autoSuspend && mDecoupleHalAutoSuspendModeFromDisplayConfig) {
-            setHalAutoSuspendModeLocked(true);
-        }
-    }
-    
-    private void updateSuspendBlockerLocked(String lockName) {
-        final boolean needWakeLockSuspendBlocker = ((mWakeLockSummary & WAKE_LOCK_CPU) != 0);
-        final boolean needDisplaySuspendBlocker = needDisplaySuspendBlockerLocked();
-        final boolean autoSuspend = !needDisplaySuspendBlocker;
-        final boolean interactive = mDisplayPowerRequest.isBrightOrDim();
-
-        // Disable auto-suspend if needed.
-        // FIXME We should consider just leaving auto-suspend enabled forever since
-        // we already hold the necessary wakelocks.
-        if (!autoSuspend && mDecoupleHalAutoSuspendModeFromDisplayConfig) {
-            setHalAutoSuspendModeLocked(false);
-        }
-
-        // First acquire suspend blockers if needed.
-        if (needWakeLockSuspendBlocker && !mHoldingWakeLockSuspendBlocker) {
-            mWakeLockSuspendBlocker.acquire(lockName);
-            mHoldingWakeLockSuspendBlocker = true;
-        }
-        if (needDisplaySuspendBlocker && !mHoldingDisplaySuspendBlocker) {
-            mDisplaySuspendBlocker.acquire(lockName);
-            mHoldingDisplaySuspendBlocker = true;
-        }
-
-        // Inform the power HAL about interactive mode.
-        // Although we could set interactive strictly based on the wakefulness
-        // as reported by isInteractive(), it is actually more desirable to track
-        // the display policy state instead so that the interactive state observed
-        // by the HAL more accurately tracks transitions between AWAKE and DOZING.
-        // Refer to getDesiredScreenPolicyLocked() for details.
-        if (mDecoupleHalInteractiveModeFromDisplayConfig) {
-            // When becoming non-interactive, we want to defer sending this signal
-            // until the display is actually ready so that all transitions have
-            // completed.  This is probably a good sign that things have gotten
-            // too tangled over here...
-            if (interactive || mDisplayReady) {
-                setHalInteractiveModeLocked(interactive);
-            }
-        }
-
-        // Then release suspend blockers if needed.
-        if (!needWakeLockSuspendBlocker && mHoldingWakeLockSuspendBlocker) {
-            mWakeLockSuspendBlocker.release(lockName);
-            mHoldingWakeLockSuspendBlocker = false;
-        }
-        if (!needDisplaySuspendBlocker && mHoldingDisplaySuspendBlocker) {
-            mDisplaySuspendBlocker.release(lockName);
             mHoldingDisplaySuspendBlocker = false;
         }
 
@@ -4419,22 +4215,8 @@ public final class PowerManagerService extends SystemService
             PowerManager.validateWakeLockParameters(flags, tag);
 
             mContext.enforceCallingOrSelfPermission(android.Manifest.permission.WAKE_LOCK, null);
-//             if ((flags & PowerManager.DOZE_WAKE_LOCK) != 0) {
-//                 mContext.enforceCallingOrSelfPermission(
-//                         android.Manifest.permission.DEVICE_POWER, null);
-//             }
-//             if (ws != null && !ws.isEmpty()) {
-//                 mContext.enforceCallingOrSelfPermission(
-//                         android.Manifest.permission.UPDATE_DEVICE_STATS, null);
-//             } else {
-//                 ws = null;
-//             }
-
-//             final int uid = Binder.getCallingUid();
-//             final int pid = Binder.getCallingPid();
             final long ident = Binder.clearCallingIdentity();
             try {
-//                 acquireWakeLockInternal(lock, flags, tag, packageName, ws, historyTag, uid, pid, lockName);
                 mWakeLockSuspendBlocker.acquire(lockName);
             } catch (Exception e){
                 e.printStackTrace();
@@ -4469,7 +4251,6 @@ public final class PowerManagerService extends SystemService
 
              final long ident = Binder.clearCallingIdentity();
             try {
-//                 releaseWakeLockInternal(lock, flags, lockName);
                 mWakeLockSuspendBlocker.release(lockName);
             }  catch (Exception e){
                 e.printStackTrace();
