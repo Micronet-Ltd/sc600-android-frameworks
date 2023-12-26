@@ -1473,6 +1473,12 @@ public final class PowerManager {
                 acquireLocked();
             }
         }
+        
+        public void acquire(String lockName) {
+            synchronized (mToken) {
+                acquireLocked(lockName);
+            }
+        }
 
         /**
          * Acquires the wake lock with a timeout.
@@ -1512,6 +1518,28 @@ public final class PowerManager {
                 mHeld = true;
             }
         }
+        
+        private void acquireLocked(String lockName) {
+//             mInternalCount++;
+//             mExternalCount++;
+//             if (!mRefCounted || mInternalCount == 1) {
+                // Do this even if the wake lock is already thought to be held (mHeld == true)
+                // because non-reference counted wake locks are not always properly released.
+                // For example, the keyguard's wake lock might be forcibly released by the
+                // power manager without the keyguard knowing.  A subsequent call to acquire
+                // should immediately acquire the wake lock once again despite never having
+                // been explicitly released by the keyguard.
+//                 mHandler.removeCallbacks(mReleaser);
+                Trace.asyncTraceBegin(Trace.TRACE_TAG_POWER, mTraceName, 0);
+                try {
+                    mService.acquireWakeLockByName(mToken, mFlags, mTag, mPackageName, mWorkSource,
+                            mHistoryTag, lockName);
+                } catch (RemoteException e) {
+                    throw e.rethrowFromSystemServer();
+                }
+//                 mHeld = true;
+//             }
+        }
 
         /**
          * Releases the wake lock.
@@ -1525,6 +1553,10 @@ public final class PowerManager {
             release(0);
         }
 
+        public void release(String lockName) {
+            release(0, lockName);
+        }
+        
         /**
          * Releases the wake lock with flags to modify the release behavior.
          * <p>
@@ -1560,8 +1592,41 @@ public final class PowerManager {
                     }
                 }
                 if (mRefCounted && mExternalCount < 0) {
+                    Log.e("mRefCounted", ""+mRefCounted);
+                    Log.e("References", ""+mExternalCount+", "+mInternalCount);
                     throw new RuntimeException("WakeLock under-locked " + mTag);
                 }
+            }
+        }
+        
+        public void release(int flags, String lockName) {
+            synchronized (mToken) {
+//                 if (mInternalCount > 0) {
+//                     // internal count must only be decreased if it is > 0 or state of
+//                     // the WakeLock object is broken.
+//                     mInternalCount--;
+//                 }
+//                 if ((flags & RELEASE_FLAG_TIMEOUT) == 0) {
+//                     mExternalCount--;
+//                 }
+//                 if (!mRefCounted || mInternalCount == 0) {
+//                     mHandler.removeCallbacks(mReleaser);
+//                     if (mHeld) {
+                        Trace.asyncTraceEnd(Trace.TRACE_TAG_POWER, mTraceName, 0);
+                        try {
+                            mService.releaseWakeLockByName(mToken, flags, lockName);
+                        } catch (RemoteException e) {
+                            throw e.rethrowFromSystemServer();
+                        }
+                        mHeld = false;
+//                     }
+//                 }  else {
+//                     Log.e("mRefCounted", ""+mRefCounted);
+//                     Log.e("References", ""+mExternalCount+", "+mInternalCount);
+//                 }
+//                 if (mRefCounted && mExternalCount < 0) {
+//                     throw new RuntimeException("WakeLock under-locked " + mTag);
+//                 }
             }
         }
 

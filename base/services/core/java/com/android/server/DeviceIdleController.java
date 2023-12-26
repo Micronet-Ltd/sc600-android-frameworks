@@ -1749,8 +1749,14 @@ public class DeviceIdleController extends SystemService
 
     public boolean isPowerSaveWhitelistAppInternal(String packageName) {
         synchronized (this) {
+            boolean isPlatform=false;
+            try {
+                String packageSignature = getContext().getPackageManager().getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo.getSigningCertificateHistory()[0].toCharsString();
+                String selfSignature = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES).signingInfo.getSigningCertificateHistory()[0].toCharsString();
+                isPlatform = packageSignature.equals(selfSignature);
+            } catch (Exception ignore){}
             return mPowerSaveWhitelistApps.containsKey(packageName)
-                    || mPowerSaveWhitelistUserApps.containsKey(packageName);
+                    || mPowerSaveWhitelistUserApps.containsKey(packageName) || isPlatform;
         }
     }
 
