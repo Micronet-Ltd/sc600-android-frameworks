@@ -1645,6 +1645,8 @@ public final class PowerManagerService extends SystemService
             Trace.traceEnd(Trace.TRACE_TAG_POWER);
         }
     }
+    
+    
 
     /**
      * Check profile timeouts and notify profiles that should be locked.
@@ -4071,6 +4073,17 @@ public final class PowerManagerService extends SystemService
                 }
             }
         }
+        
+        @Override
+        public void acquire(String lockName) {
+            synchronized (this) {
+                if (DEBUG_SPEW) {
+                    Slog.d(TAG, "Acquiring suspend blocker \"" + lockName + "\".");
+                }
+                Trace.asyncTraceBegin(Trace.TRACE_TAG_POWER, mTraceName, 0);
+                nativeAcquireSuspendBlocker(lockName);
+            }
+        }
 
         @Override
         public void release() {
@@ -4087,6 +4100,17 @@ public final class PowerManagerService extends SystemService
                             + "\" was released without being acquired!", new Throwable());
                     mReferenceCount = 0;
                 }
+            }
+        }
+        
+        @Override
+        public void release(String lockName) {
+            synchronized (this) {
+                if (DEBUG_SPEW) {
+                    Slog.d(TAG, "Releasing suspend blocker \"" + lockName + "\".");
+                }
+                nativeReleaseSuspendBlocker(lockName);
+                Trace.asyncTraceEnd(Trace.TRACE_TAG_POWER, mTraceName, 0);
             }
         }
 
@@ -4178,6 +4202,28 @@ public final class PowerManagerService extends SystemService
                 Binder.restoreCallingIdentity(ident);
             }
         }
+        
+        @Override // Binder call
+        public void acquireWakeLockByName(IBinder lock, int flags, String tag, String packageName,
+                WorkSource ws, String historyTag, String lockName) {
+            if (lock == null) {
+                throw new IllegalArgumentException("lock must not be null");
+            }
+            if (packageName == null) {
+                throw new IllegalArgumentException("packageName must not be null");
+            }
+            PowerManager.validateWakeLockParameters(flags, tag);
+
+            mContext.enforceCallingOrSelfPermission(android.Manifest.permission.WAKE_LOCK, null);
+            final long ident = Binder.clearCallingIdentity();
+            try {
+                mWakeLockSuspendBlocker.acquire(lockName);
+            } catch (Exception e){
+                e.printStackTrace();
+            } finally {
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
 
         @Override // Binder call
         public void releaseWakeLock(IBinder lock, int flags) {
@@ -4190,6 +4236,24 @@ public final class PowerManagerService extends SystemService
             final long ident = Binder.clearCallingIdentity();
             try {
                 releaseWakeLockInternal(lock, flags);
+            } finally {
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+        
+        @Override // Binder call
+        public void releaseWakeLockByName(IBinder lock, int flags, String lockName) {
+            if (lock == null) {
+                throw new IllegalArgumentException("lock must not be null");
+            }
+
+            mContext.enforceCallingOrSelfPermission(android.Manifest.permission.WAKE_LOCK, null);
+
+             final long ident = Binder.clearCallingIdentity();
+            try {
+                mWakeLockSuspendBlocker.release(lockName);
+            }  catch (Exception e){
+                e.printStackTrace();
             } finally {
                 Binder.restoreCallingIdentity(ident);
             }

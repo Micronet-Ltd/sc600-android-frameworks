@@ -33,6 +33,8 @@ interface SuspendBlocker {
      * of calls to release().
      */
     void acquire();
+    
+    void acquire(String lockName);
 
     /**
      * Releases the suspend blocker.
@@ -42,6 +44,8 @@ interface SuspendBlocker {
      * The system may crash.
      */
     void release();
+    
+    void release(String lockName);
 
     void writeToProto(ProtoOutputStream proto, long fieldId);
 }
