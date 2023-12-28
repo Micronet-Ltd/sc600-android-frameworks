@@ -1473,6 +1473,12 @@ public final class PowerManager {
                 acquireLocked();
             }
         }
+        
+        public void acquire(String lockName) {
+            synchronized (mToken) {
+                acquireLocked(lockName);
+            }
+        }
 
         /**
          * Acquires the wake lock with a timeout.
@@ -1512,6 +1518,16 @@ public final class PowerManager {
                 mHeld = true;
             }
         }
+        
+        private void acquireLocked(String lockName) {
+            Trace.asyncTraceBegin(Trace.TRACE_TAG_POWER, mTraceName, 0);
+            try {
+                mService.acquireWakeLockByName(mToken, mFlags, mTag, mPackageName, mWorkSource,
+                        mHistoryTag, lockName);
+            } catch (RemoteException e) {
+                throw e.rethrowFromSystemServer();
+            }
+        }
 
         /**
          * Releases the wake lock.
@@ -1525,6 +1541,10 @@ public final class PowerManager {
             release(0);
         }
 
+        public void release(String lockName) {
+            release(0, lockName);
+        }
+        
         /**
          * Releases the wake lock with flags to modify the release behavior.
          * <p>
@@ -1561,6 +1581,17 @@ public final class PowerManager {
                 }
                 if (mRefCounted && mExternalCount < 0) {
                     throw new RuntimeException("WakeLock under-locked " + mTag);
+                }
+            }
+        }
+        
+        public void release(int flags, String lockName) {
+            synchronized (mToken) {
+                Trace.asyncTraceEnd(Trace.TRACE_TAG_POWER, mTraceName, 0);
+                try {
+                    mService.releaseWakeLockByName(mToken, flags, lockName);
+                } catch (RemoteException e) {
+                    throw e.rethrowFromSystemServer();
                 }
             }
         }

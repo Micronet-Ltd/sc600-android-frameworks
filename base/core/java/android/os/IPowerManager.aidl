@@ -31,9 +31,12 @@ interface IPowerManager
     // frameworks/native/services/powermanager/IPowerManager.cpp must be updated.
     void acquireWakeLock(IBinder lock, int flags, String tag, String packageName, in WorkSource ws,
             String historyTag);
+    void acquireWakeLockByName(IBinder lock, int flags, String tag, String packageName, in WorkSource ws,
+            String historyTag, String lockName);
     void acquireWakeLockWithUid(IBinder lock, int flags, String tag, String packageName,
             int uidtoblame);
     void releaseWakeLock(IBinder lock, int flags);
+    void releaseWakeLockByName(IBinder lock, int flags, String lockName);
     void updateWakeLockUids(IBinder lock, in int[] uids);
     oneway void powerHint(int hintId, int data);
 

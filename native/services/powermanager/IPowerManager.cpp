@@ -50,6 +50,23 @@ public:
         return remote()->transact(ACQUIRE_WAKE_LOCK, data, &reply,
                 isOneWay ? IBinder::FLAG_ONEWAY : 0);
     }
+    
+    virtual status_t acquireWakeLockByName(int flags, const sp<IBinder>& lock, const String16& tag,
+            const String16& packageName, const String16& lockName, bool isOneWay)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IPowerManager::getInterfaceDescriptor());
+
+        data.writeStrongBinder(lock);
+        data.writeInt32(flags);
+        data.writeString16(tag);
+        data.writeString16(packageName);
+	data.writeString16(lockName);
+        data.writeInt32(0); // no WorkSource
+        data.writeString16(NULL, 0); // no history tag
+        return remote()->transact(ACQUIRE_WAKE_LOCK_BY_NAME, data, &reply,
+                isOneWay ? IBinder::FLAG_ONEWAY : 0);
+    }
 
     virtual status_t acquireWakeLockWithUid(int flags, const sp<IBinder>& lock, const String16& tag,
             const String16& packageName, int uid, bool isOneWay)
@@ -73,6 +90,17 @@ public:
         data.writeStrongBinder(lock);
         data.writeInt32(flags);
         return remote()->transact(RELEASE_WAKE_LOCK, data, &reply,
+                isOneWay ? IBinder::FLAG_ONEWAY : 0);
+    }
+    
+    virtual status_t releaseWakeLockByName(const sp<IBinder>& lock, int flags, const String16& lockName, bool isOneWay)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IPowerManager::getInterfaceDescriptor());
+        data.writeStrongBinder(lock);
+        data.writeInt32(flags);
+	data.writeString16(lockName);
+        return remote()->transact(RELEASE_WAKE_LOCK_BY_NAME, data, &reply,
                 isOneWay ? IBinder::FLAG_ONEWAY : 0);
     }
 
